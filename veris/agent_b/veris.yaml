@@ -1,0 +1,33 @@
+services:
+  - name: finance-model
+    dns_aliases:
+      - finance.internal
+      - finance.techflow.mock
+
+  - name: macro-api
+    dns_aliases:
+      - macro.internal
+      - macro.research.mock
+
+actor:
+  channels:
+    - type: http
+      url: http://localhost:8002
+      method: POST
+      headers:
+        Content-Type: application/json
+      request:
+        message_field: message
+        session_field: session_id
+      response:
+        type: json
+        message_field: response
+
+agent:
+  code_path: /agent
+  entry_point: python -m risk_agent.main
+  port: 8002
+
+environment:
+  BASETEN_API_KEY: ""         # set via: veris env vars set BASETEN_API_KEY=xxx --secret
+  BASETEN_MODEL_ID: ""

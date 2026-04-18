@@ -1,0 +1,33 @@
+services:
+  - name: salesforce
+    dns_aliases:
+      - api.salesforce.com
+      - api.salesforce.mock
+
+  - name: forecast-api
+    dns_aliases:
+      - forecast.internal
+      - forecast.techflow.mock
+
+actor:
+  channels:
+    - type: http
+      url: http://localhost:8001
+      method: POST
+      headers:
+        Content-Type: application/json
+      request:
+        message_field: message
+        session_field: session_id
+      response:
+        type: json
+        message_field: response
+
+agent:
+  code_path: /agent
+  entry_point: python -m revenue_agent.main
+  port: 8001
+
+environment:
+  BASETEN_API_KEY: ""         # set via: veris env vars set BASETEN_API_KEY=xxx --secret
+  BASETEN_MODEL_ID: ""

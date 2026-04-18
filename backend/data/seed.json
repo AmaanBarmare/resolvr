@@ -1,0 +1,29 @@
+{
+  "company": "TechFlow Inc.",
+  "industry": "B2B SaaS",
+  "stage": "Series A",
+  "founded": 2022,
+  "financials": {
+    "runway_total_dollars": 6000000,
+    "burn_rate_monthly": 680000,
+    "runway_months": 8.8,
+    "burn_includes_salaries": true
+  },
+  "team": {
+    "engineers_current": 42,
+    "total_employees": 67
+  },
+  "pipeline": {
+    "total_value": 4200000,
+    "deal_count": 23,
+    "primary_region": "APAC",
+    "avg_deal_size": 182608,
+    "window_months": 6
+  },
+  "hire_cost": {
+    "per_engineer_monthly": 18000,
+    "hiring_batch": 12,
+    "total_monthly_impact": 216000
+  },
+  "decision_question": "Should we hire 12 engineers now to capture the APAC opportunity, or freeze headcount to protect our 9-month runway?"
+}

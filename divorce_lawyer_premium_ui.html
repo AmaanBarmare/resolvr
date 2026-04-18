@@ -1,0 +1,321 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.app{font-family:var(--font-sans);font-size:14px;color:var(--color-text-primary)}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 0 14px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:18px}
+.company-info{display:flex;flex-direction:column;gap:2px}
+.company-name{font-size:15px;font-weight:500}
+.company-meta{font-size:12px;color:var(--color-text-tertiary)}
+.run-btn{padding:9px 22px;border-radius:var(--border-radius-md);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;border:none;letter-spacing:0.01em}
+.run-btn.idle{background:var(--color-text-primary);color:var(--color-background-primary)}
+.run-btn.idle:hover{opacity:.85}
+.run-btn.running{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary);cursor:not-allowed}
+.run-btn.done{background:#27500A;color:#EAF3DE}
+.pipeline-bar{display:flex;align-items:center;gap:0;margin-bottom:20px;background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:4px;border:0.5px solid var(--color-border-tertiary)}
+.stage-pill{flex:1;padding:7px 8px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;font-weight:500;color:var(--color-text-tertiary);transition:all .25s;cursor:default}
+.stage-pill.active{background:var(--color-background-primary);color:var(--color-text-info);border:0.5px solid var(--color-border-info)}
+.stage-pill.done{background:var(--color-background-primary);color:var(--color-text-success);border:0.5px solid var(--color-border-success)}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.spin{width:10px;height:10px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.section{margin-bottom:16px;animation:fadeup .22s ease-out}
+@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.section-tag{font-size:10px;font-weight:500;letter-spacing:0.05em;padding:3px 9px;border-radius:20px}
+.section-title{font-size:13px;font-weight:500;color:var(--color-text-secondary)}
+.agent-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.agent-card{border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);overflow:hidden}
+.agent-card-head{padding:10px 14px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.agent-card-label{font-size:10px;font-weight:500;letter-spacing:0.06em;margin-bottom:4px}
+.agent-card-rec{font-size:14px;font-weight:500;line-height:1.4}
+.agent-card-body{padding:10px 14px}
+.assumption-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.assumption-row:last-child{border-bottom:none}
+.asm-var{color:var(--color-text-tertiary);font-family:var(--font-mono);font-size:11px}
+.asm-val{font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary)}
+.div-table{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:8px}
+.dt-head{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:0;background:var(--color-background-secondary);padding:6px 12px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.dt-head span{font-size:10px;font-weight:500;letter-spacing:0.05em;color:var(--color-text-tertiary)}
+.dt-row{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;gap:0;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);align-items:center;transition:background .2s}
+.dt-row:last-child{border-bottom:none}
+.dt-row.crux{background:var(--color-background-danger)}
+.dt-row.missing{background:var(--color-background-warning)}
+.dt-cell{font-size:12px;color:var(--color-text-secondary);font-family:var(--font-mono)}
+.dt-cell.bold{font-weight:500;color:var(--color-text-danger)}
+.dt-type{font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px;display:inline-block}
+.verdict-badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:4px}
+.finding-box{background:var(--color-background-secondary);border-left:3px solid var(--color-border-primary);border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;padding:9px 12px;font-size:12px;color:var(--color-text-primary);line-height:1.6;animation:fadeup .2s ease-out}
+.ground-status{font-size:12px;color:var(--color-text-tertiary);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.paths-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.path-card{border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);overflow:hidden}
+.path-card.recommended{border:2px solid var(--color-border-success)}
+.path-head{padding:10px 12px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.path-label{font-size:10px;font-weight:500;letter-spacing:0.05em;margin-bottom:3px}
+.path-name{font-size:13px;font-weight:500}
+.path-body{padding:10px 12px;font-size:12px;color:var(--color-text-secondary);line-height:1.6}
+.path-trigger{margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-tertiary);font-size:11px;font-family:var(--font-mono)}
+.brief-wrap{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary)}
+.brief-top{padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)}
+.brief-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.brief-col{padding:14px 16px}
+.brief-col+.brief-col{border-left:0.5px solid var(--color-border-tertiary)}
+.brief-section{margin-bottom:14px}
+.brief-section:last-child{margin-bottom:0}
+.brief-section-label{font-size:10px;font-weight:500;letter-spacing:0.06em;color:var(--color-text-tertiary);margin-bottom:6px}
+.rec-block{background:var(--color-background-success);border-radius:var(--border-radius-md);padding:10px 12px;font-size:13px;font-weight:500;color:var(--color-text-success);line-height:1.5}
+.dis-block{background:var(--color-background-warning);border-radius:var(--border-radius-md);padding:10px 12px;font-size:12px;color:var(--color-text-warning);line-height:1.6}
+.trigger-item{display:flex;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-secondary);line-height:1.4}
+.trigger-item:last-child{border-bottom:none}
+.trigger-num{font-size:10px;font-weight:500;color:var(--color-text-tertiary);flex-shrink:0;padding-top:1px}
+.audit-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px}
+.audit-row:last-child{border-bottom:none}
+.audit-claim{color:var(--color-text-secondary)}
+.audit-src{font-size:11px;color:var(--color-text-info)}
+</style>
+
+<div class="app">
+<h2 class="sr-only">The Divorce Lawyer — live arbitration pipeline demo</h2>
+
+<div class="topbar">
+  <div class="company-info">
+    <span class="company-name">TechFlow Inc.</span>
+    <span class="company-meta">$6M runway · $680K/mo burn · 42 engineers · Hire 12 or freeze?</span>
+  </div>
+  <button class="run-btn idle" id="runBtn" onclick="startPipeline()">Run Arbitration</button>
+</div>
+
+<div class="pipeline-bar" id="pipelineBar">
+  <div class="stage-pill" id="pill1"><div class="pill-dot"></div>Agents</div>
+  <div class="stage-pill" id="pill2"><div class="pill-dot"></div>Forensics</div>
+  <div class="stage-pill" id="pill3"><div class="pill-dot"></div>Grounding</div>
+  <div class="stage-pill" id="pill4"><div class="pill-dot"></div>Simulation</div>
+  <div class="stage-pill" id="pill5"><div class="pill-dot"></div>Brief</div>
+</div>
+
+<div id="stages"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const stages = $('stages');
+let running = false;
+
+function setPill(n, state) {
+  const p = $('pill'+n);
+  p.className = 'stage-pill ' + state;
+  if(state === 'active') p.innerHTML = '<div class="spin"></div>' + ['','Agents','Forensics','Grounding','Simulation','Brief'][n];
+  else if(state === 'done') p.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="2,5 4,8 8,2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' + ['','Agents','Forensics','Grounding','Simulation','Brief'][n];
+  else p.innerHTML = '<div class="pill-dot"></div>' + ['','Agents','Forensics','Grounding','Simulation','Brief'][n];
+}
+
+function addSection(html) {
+  const d = document.createElement('div');
+  d.className = 'section';
+  d.innerHTML = html;
+  stages.appendChild(d);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function startPipeline() {
+  if(running) return;
+  running = true;
+  $('runBtn').className = 'run-btn running';
+  $('runBtn').textContent = 'Running...';
+  stages.innerHTML = '';
+
+  await delay(300);
+
+  setPill(1,'active');
+  await delay(900);
+  addSection(`
+    <div class="section-header">
+      <span class="section-tag" style="background:#FAEEDA;color:#633806">Stage 1</span>
+      <span class="section-title">Agent outputs — loaded from Veris transcripts</span>
+      <span style="font-size:11px;color:var(--color-text-tertiary);margin-left:auto">transcript_a.json · transcript_b.json</span>
+    </div>
+    <div class="agent-grid">
+      <div class="agent-card" style="border-left:3px solid #EF9F27;border-radius:var(--border-radius-lg)">
+        <div class="agent-card-head">
+          <div class="agent-card-label" style="color:#633806">AGENT A · REVENUE</div>
+          <div class="agent-card-rec">Hire 12 engineers now</div>
+        </div>
+        <div class="agent-card-body">
+          <div class="assumption-row"><span class="asm-var">close_rate</span><span class="asm-val" style="color:#854F0B">34%</span></div>
+          <div class="assumption-row"><span class="asm-var">pipeline_value</span><span class="asm-val">$4.2M</span></div>
+          <div class="assumption-row"><span class="asm-var">projected_arr</span><span class="asm-val">$1.43M</span></div>
+          <div class="assumption-row"><span class="asm-var">source</span><span class="asm-val" style="color:var(--color-text-tertiary)">internal CRM Q2</span></div>
+        </div>
+      </div>
+      <div class="agent-card" style="border-left:3px solid #378ADD;border-radius:var(--border-radius-lg)">
+        <div class="agent-card-head">
+          <div class="agent-card-label" style="color:#0C447C">AGENT B · RISK</div>
+          <div class="agent-card-rec">Freeze all headcount</div>
+        </div>
+        <div class="agent-card-body">
+          <div class="assumption-row"><span class="asm-var">close_rate</span><span class="asm-val" style="color:#185FA5">19%</span></div>
+          <div class="assumption-row"><span class="asm-var">burn_rate</span><span class="asm-val">$680K/mo</span></div>
+          <div class="assumption-row"><span class="asm-var">runway_months</span><span class="asm-val">8.8 months</span></div>
+          <div class="assumption-row"><span class="asm-var">source</span><span class="asm-val" style="color:var(--color-text-tertiary)">CB Insights Q1 2026</span></div>
+        </div>
+      </div>
+    </div>
+  `);
+  setPill(1,'done'); setPill(2,'active');
+  await delay(1600);
+
+  addSection(`
+    <div class="section-header">
+      <span class="section-tag" style="background:#E1F5EE;color:#085041">Stage 2</span>
+      <span class="section-title">Forensics — assumption divergence map</span>
+    </div>
+    <div class="div-table">
+      <div class="dt-head">
+        <span>Variable</span><span>Agent A</span><span>Agent B</span><span>Type</span><span id="verdictHead">Verdict</span>
+      </div>
+      <div class="dt-row crux">
+        <span class="dt-cell bold">close_rate</span>
+        <span class="dt-cell" style="color:#854F0B;font-weight:500">34% (CRM Q2)</span>
+        <span class="dt-cell" style="color:#185FA5;font-weight:500">19% (benchmark)</span>
+        <span><span class="dt-type" style="background:#FCEBEB;color:#A32D2D">data conflict</span></span>
+        <span id="v-close"><span class="dt-type" style="background:var(--color-background-secondary);color:var(--color-text-tertiary)">—</span></span>
+      </div>
+      <div class="dt-row">
+        <span class="dt-cell">pipeline_value</span>
+        <span class="dt-cell">$4.2M</span>
+        <span class="dt-cell">$4.2M</span>
+        <span><span class="dt-type" style="background:#EAF3DE;color:#27500A">agreed</span></span>
+        <span id="v-pipe"><span class="dt-type" style="background:var(--color-background-secondary);color:var(--color-text-tertiary)">—</span></span>
+      </div>
+      <div class="dt-row missing">
+        <span class="dt-cell" style="color:#633806;font-weight:500">macro_outlook</span>
+        <span class="dt-cell" style="color:var(--color-text-tertiary)">not modeled</span>
+        <span class="dt-cell">contracting</span>
+        <span><span class="dt-type" style="background:#FAEEDA;color:#633806">missing var</span></span>
+        <span id="v-macro"><span class="dt-type" style="background:var(--color-background-secondary);color:var(--color-text-tertiary)">—</span></span>
+      </div>
+      <div class="dt-row">
+        <span class="dt-cell">burn_rate</span>
+        <span class="dt-cell">$680K/mo</span>
+        <span class="dt-cell">$680K/mo</span>
+        <span><span class="dt-type" style="background:#EAF3DE;color:#27500A">agreed</span></span>
+        <span id="v-burn"><span class="dt-type" style="background:var(--color-background-secondary);color:var(--color-text-tertiary)">—</span></span>
+      </div>
+    </div>
+    <div class="finding-box">
+      Finding: Agents split at <strong>close_rate</strong> — Agent A used 34% (internal CRM Q2) vs Agent B's 19% (CB Insights macro benchmark). Agent A's entire case collapses if close rate drops below 26%.
+    </div>
+  `);
+  setPill(2,'done'); setPill(3,'active');
+
+  const groundEl = document.createElement('div');
+  groundEl.className = 'section';
+  groundEl.innerHTML = `
+    <div class="section-header">
+      <span class="section-tag" style="background:#E1F5EE;color:#085041">Stage 3</span>
+      <span class="section-title">You.com grounding — live market verification</span>
+    </div>
+    <div class="ground-status" id="gStatus"><div class="spin"></div>Querying You.com for enterprise SaaS benchmarks...</div>
+  `;
+  stages.appendChild(groundEl);
+  await delay(1600);
+
+  $('gStatus').innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--color-text-success)" stroke-width="1.5"/><polyline points="3,6 5.5,8.5 9,4" fill="none" stroke="var(--color-text-success)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="color:var(--color-text-success)">4 assumptions verified · 2 outliers found · sources cited</span>`;
+
+  $('v-close').innerHTML = `<span class="verdict-badge" style="background:#FCEBEB;color:#A32D2D"><span>OUTLIER</span></span> <a style="font-size:10px;color:var(--color-text-info)" href="#">gartner.com ↗</a>`;
+  $('v-pipe').innerHTML = `<span class="verdict-badge" style="background:#EAF3DE;color:#27500A">ALIGNED</span>`;
+  $('v-macro').innerHTML = `<span class="verdict-badge" style="background:#FCEBEB;color:#A32D2D">CONFIRMED</span> <a style="font-size:10px;color:var(--color-text-info)" href="#">cbinsights.com ↗</a>`;
+  $('v-burn').innerHTML = `<span class="verdict-badge" style="background:#EAF3DE;color:#27500A">ALIGNED</span>`;
+
+  setPill(3,'done'); setPill(4,'active');
+  await delay(1600);
+
+  addSection(`
+    <div class="section-header">
+      <span class="section-tag" style="background:#FAECE7;color:#712B13">Stage 4</span>
+      <span class="section-title">Simulation — conditional outcome trees</span>
+    </div>
+    <div class="paths-grid">
+      <div class="path-card">
+        <div class="path-head" style="background:#FCEBEB">
+          <div class="path-label" style="color:#A32D2D">PATH A</div>
+          <div class="path-name">Hire 12 engineers</div>
+        </div>
+        <div class="path-body">
+          Viable only if internal CRM close rate of 34% holds. At market median of 19%, runway drops to 6 months after hiring.
+          <div class="path-trigger" style="color:var(--color-text-danger)">Breaks if pipeline &lt; $2.8M by Q3</div>
+        </div>
+      </div>
+      <div class="path-card">
+        <div class="path-head" style="background:#FAEEDA">
+          <div class="path-label" style="color:#633806">PATH B</div>
+          <div class="path-name">Freeze headcount</div>
+        </div>
+        <div class="path-body">
+          Preserves 8.8 months runway. Safe floor, but APAC window likely missed — pipeline velocity drops 30%.
+          <div class="path-trigger" style="color:var(--color-text-warning)">Suboptimal if close rate &gt; 28%</div>
+        </div>
+      </div>
+      <div class="path-card recommended">
+        <div class="path-head" style="background:#EAF3DE">
+          <div class="path-label" style="color:#27500A">HYBRID · RECOMMENDED</div>
+          <div class="path-name">Hire 4 + trigger</div>
+        </div>
+        <div class="path-body">
+          Preserves 8mo runway. Maintains 70% pipeline capacity. Expands to 12 on Q3 data confirmation.
+          <div class="path-trigger" style="color:var(--color-text-success)">Trigger: Q3 pipeline &gt; $3M ARR</div>
+        </div>
+      </div>
+    </div>
+  `);
+  setPill(4,'done'); setPill(5,'active');
+  await delay(1800);
+
+  addSection(`
+    <div class="section-header">
+      <span class="section-tag" style="background:#EAF3DE;color:#27500A">Stage 5</span>
+      <span class="section-title">Decision brief — executive document</span>
+    </div>
+    <div class="brief-wrap">
+      <div class="brief-top">
+        <div style="font-size:11px;font-weight:500;letter-spacing:0.05em;color:var(--color-text-tertiary);margin-bottom:3px">ARBITRATION BRIEF · TECHFLOW INC. · APRIL 18 2026</div>
+        <div style="font-size:13px;font-weight:500">APAC headcount decision — agent conflict resolved</div>
+      </div>
+      <div class="brief-body">
+        <div class="brief-col">
+          <div class="brief-section">
+            <div class="brief-section-label">RECOMMENDED DECISION</div>
+            <div class="rec-block">Hire 4 engineers now. Expand to 12 if Q3 pipeline closes above $3M ARR.</div>
+          </div>
+          <div class="brief-section">
+            <div class="brief-section-label">RATIONALE</div>
+            <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.7">Agent A's case rests on a 34% close rate — 1.7× the Gartner 2026 market median of 17–22%. Until Q3 data validates this, full-scale hiring is a $216K/month bet on an unverified outlier.</div>
+          </div>
+          <div class="brief-section">
+            <div class="brief-section-label">DISSENTING OPINION</div>
+            <div class="dis-block">Agent B: Even 4 hires reduces runway to 7.8 months. If macro conditions worsen, the Q3 trigger may arrive too late. Recommend full freeze until pipeline data confirms Agent A's close rate.</div>
+          </div>
+        </div>
+        <div class="brief-col">
+          <div class="brief-section">
+            <div class="brief-section-label">TRIGGER CONDITIONS</div>
+            <div class="trigger-item"><span class="trigger-num">01</span><span>Expand to 12 engineers if Q3 pipeline closes above $3M ARR</span></div>
+            <div class="trigger-item"><span class="trigger-num">02</span><span>Freeze expansion if monthly burn exceeds $900K for 2 consecutive months</span></div>
+            <div class="trigger-item"><span class="trigger-num">03</span><span>Cancel APAC initiative if enterprise SaaS macro index drops &gt;15% below Q1 baseline</span></div>
+          </div>
+          <div class="brief-section">
+            <div class="brief-section-label">AUDIT LOG</div>
+            <div class="audit-row"><span class="audit-claim">Close rate benchmark 17–22%</span><a class="audit-src" href="#">Gartner 2026 ↗</a></div>
+            <div class="audit-row"><span class="audit-claim">APAC SaaS market +18% YoY</span><a class="audit-src" href="#">IDC APAC ↗</a></div>
+            <div class="audit-row"><span class="audit-claim">Enterprise macro outlook: contracting</span><a class="audit-src" href="#">CB Insights Q1 ↗</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `);
+  setPill(5,'done');
+  $('runBtn').className = 'run-btn done';
+  $('runBtn').textContent = 'Arbitration complete';
+  running = false;
+}
+</script>

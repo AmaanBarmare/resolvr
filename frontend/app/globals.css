@@ -1,0 +1,258 @@
+/* =====================================================================
+   RESOLVR · THE ARBITRATION DESK
+   Editorial decision-document aesthetic.
+   ===================================================================== */
+
+:root {
+  /* —— TYPE ——————————————————————————————————————————————— */
+  --font-display: 'Fraunces', 'Times New Roman', Georgia, serif;
+  --font-serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  /* —— PAPER & INK ——————————————————————————————————————— */
+  --paper:        #EFEAD8;   /* warm newsprint */
+  --paper-bright: #F7F2E2;   /* lifted card */
+  --paper-deep:   #E4DDC4;   /* recessed surface */
+  --paper-edge:   #D2C9AC;   /* thicker rule */
+
+  --ink:          #1A1813;   /* primary — warm near-black */
+  --ink-mid:      #4B463A;   /* secondary */
+  --ink-soft:     #7A7361;   /* tertiary */
+  --ink-faint:    #ADA286;   /* hint */
+  --ink-rule:     rgba(26, 24, 19, 0.14);
+  --ink-rule-strong: rgba(26, 24, 19, 0.32);
+
+  /* —— EDITORIAL ACCENTS —————————————————————————————————— */
+  --crimson:        #94221C; /* risk, divergence, dissent */
+  --crimson-paper:  #ECD3CB;
+  --crimson-ink:    #5C1612;
+
+  --amber:          #8C5A14; /* revenue, caution */
+  --amber-paper:    #ECD9B0;
+  --amber-ink:      #523309;
+
+  --slate:          #2A4754; /* analysis, grounding */
+  --slate-paper:    #C7D3D2;
+  --slate-ink:      #182E38;
+
+  --forest:         #3B5235; /* resolution, accepted */
+  --forest-paper:   #D2DCBE;
+  --forest-ink:     #1F2E1B;
+
+  /* —— METRIC ——————————————————————————————————————————— */
+  --rule-thin: 0.5px solid var(--ink-rule);
+  --rule: 1px solid var(--ink-rule);
+  --rule-thick: 2px solid var(--ink);
+  --rule-double: 1px double var(--ink);
+  --rule-soft: 0.5px solid var(--ink-rule);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  font-feature-settings: 'kern', 'liga', 'calt';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Paper texture — fine multiplied grain that reads as real stock. */
+body {
+  background-image:
+    radial-gradient(circle at 0% 0%, rgba(178, 158, 110, 0.10), transparent 55%),
+    radial-gradient(circle at 100% 0%, rgba(94, 73, 38, 0.05), transparent 50%),
+    radial-gradient(circle at 50% 100%, rgba(150, 130, 85, 0.08), transparent 60%);
+  background-attachment: fixed;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.92' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.36 0 0 0 0 0.30 0 0 0 0 0.20 0 0 0 0.20 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+button {
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  padding: 0;
+  letter-spacing: inherit;
+}
+
+a {
+  color: var(--slate-ink);
+  text-decoration: none;
+  border-bottom: 0.5px solid var(--ink-rule-strong);
+  padding-bottom: 1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+a:hover { color: var(--crimson); border-bottom-color: var(--crimson); }
+
+/* —— ANIMATIONS ————————————————————————————————————————— */
+@keyframes pressrise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes inkbleed {
+  0%   { opacity: 0; letter-spacing: 0.08em; }
+  60%  { opacity: 1; }
+  100% { opacity: 1; letter-spacing: inherit; }
+}
+@keyframes ruleslide {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.section { animation: pressrise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.section:nth-child(2) { animation-delay: 0.04s; }
+.section:nth-child(3) { animation-delay: 0.08s; }
+.section:nth-child(4) { animation-delay: 0.12s; }
+.section:nth-child(5) { animation-delay: 0.16s; }
+
+.spin {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+}
+
+/* —— TYPOGRAPHIC PRIMITIVES ——————————————————————————————— */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.eyebrow-tight {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144, "SOFT" 30, "wght" 400;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+  color: var(--ink);
+}
+
+.serif { font-family: var(--font-serif); font-feature-settings: 'kern','liga'; }
+.mono  { font-family: var(--font-mono); font-variant-ligatures: none; }
+.sans  { font-family: var(--font-sans); }
+
+/* Editorial divider rule */
+.rule {
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.85;
+}
+.rule-double {
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  height: 4px;
+}
+
+/* —— LAYOUT FRAMES ————————————————————————————————————— */
+.page {
+  position: relative;
+  z-index: 2;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 28px 40px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.surface {
+  background: var(--paper-bright);
+  border: 0.5px solid var(--ink-rule-strong);
+  position: relative;
+}
+
+.surface-deep {
+  background: var(--paper-deep);
+  border: 0.5px solid var(--ink-rule-strong);
+}
+
+/* tabular numbers wherever data appears */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Markers / enumerations */
+.marker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+/* Editorial pill — sharp corners, tight tracking */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border: 0.5px solid currentColor;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.tag-solid {
+  border: none;
+  padding: 4px 8px;
+}
+
+/* Drop cap for the brief */
+.dropcap::first-letter {
+  font-family: var(--font-display);
+  font-variation-settings: "opsz" 144, "SOFT" 0, "wght" 500;
+  float: left;
+  font-size: 4.4em;
+  line-height: 0.86;
+  padding: 4px 8px 0 0;
+  margin-top: 4px;
+  color: var(--ink);
+}
+
+/* Selection */
+::selection { background: var(--ink); color: var(--paper); }
+
+/* Scrollbar — match the paper */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper-deep); }
+::-webkit-scrollbar-thumb { background: var(--ink-faint); border: 2px solid var(--paper-deep); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-soft); }
