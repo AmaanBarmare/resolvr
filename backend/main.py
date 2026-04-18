@@ -11,7 +11,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 from pipeline import load_json, run_pipeline  # noqa: E402
 
-app = FastAPI(title="The Divorce Lawyer")
+app = FastAPI(title="Resolvr")
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,4 @@
-# The Divorce Lawyer
+# Resolvr
 
 > Multi-agent conflict arbitration — when your AIs disagree, who decides?
 
@@ -15,7 +15,7 @@ Enterprises run dozens of AI agents simultaneously. They constantly give conflic
 
 Today there is zero infrastructure to resolve those conflicts.
 
-**The Divorce Lawyer** is the arbitration layer. It:
+**Resolvr** is the arbitration layer. It:
 
 1. Takes two conflicting agent outputs (Veris behavioral transcripts)
 2. Finds **exactly** where their reasoning diverged (Forensics Agent)

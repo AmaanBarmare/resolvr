@@ -6,7 +6,7 @@ This file tells Claude Code everything it needs to know to work on this codebase
 
 ## What This Project Is
 
-A multi-agent conflict arbitration system called **The Divorce Lawyer**. Two AI agents (Revenue and Risk) analyze the same company scenario and reach conflicting recommendations. This system finds where they diverged, verifies the disputed claims against live market data, simulates outcomes, and produces a structured decision brief.
+A multi-agent conflict arbitration system called **Resolvr**. Two AI agents (Revenue and Risk) analyze the same company scenario and reach conflicting recommendations. This system finds where they diverged, verifies the disputed claims against live market data, simulates outcomes, and produces a structured decision brief.
 
 **The core pipeline has 5 stages:**
 1. Load Veris transcripts (pre-saved JSON, instant)
