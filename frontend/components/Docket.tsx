@@ -1,18 +1,29 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 
 interface Props {
   running: boolean;
   finished: boolean;
   hasResults: boolean;
-  onRun: () => void;
+  onRun: (scenarioA: string, scenarioB: string) => void;
 }
+
+const DEFAULT_SCENARIO_A =
+  'TechFlow Inc. is a Series A B2B SaaS company. Revenue team is considering hiring 12 new engineers in Q3 to pursue the APAC enterprise pipeline. Pull the current APAC pipeline, historical close rate, and projected ARR, then recommend a hiring decision.';
+
+const DEFAULT_SCENARIO_B =
+  'TechFlow Inc. is a Series A B2B SaaS company. Finance is reviewing a proposal to hire 12 engineers in Q3. Pull burn rate, runway, the cost impact of the hires, and the enterprise SaaS macro outlook, then recommend a risk-appropriate hiring decision.';
 
 /**
  * Docket — the case sheet. Sets the conflict, frames the proceeding,
- * and holds the primary call-to-action. This is the hero element.
+ * takes the two filings, and holds the primary call-to-action.
  */
 export function Docket({ running, finished, hasResults, onRun }: Props) {
+  const [scenarioA, setScenarioA] = useState(DEFAULT_SCENARIO_A);
+  const [scenarioB, setScenarioB] = useState(DEFAULT_SCENARIO_B);
+
+  const canRun = !running && scenarioA.trim().length > 0 && scenarioB.trim().length > 0;
+
   return (
     <section
       style={{
@@ -21,7 +32,7 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
         border: '0.5px solid var(--ink-rule-strong)',
         padding: '32px 36px 28px',
         display: 'grid',
-        gridTemplateColumns: '1fr 320px',
+        gridTemplateColumns: '1fr 360px',
         gap: 40,
       }}
     >
@@ -71,12 +82,12 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
             maxWidth: 560,
           }}
         >
-          Two AI advisors examined the same balance sheet, the same pipeline, the same six-month
-          window — and arrived at directly opposed counsel. The Revenue agent demands twelve
-          immediate hires. The Risk agent demands a complete freeze.{' '}
+          Two AI advisors will examine the same balance sheet, the same pipeline, the same
+          six-month window — and almost certainly arrive at directly opposed counsel.{' '}
           <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
-            Resolvr finds where the reasoning split, weighs the disputed numbers against live
-            market evidence, and issues a published opinion.
+            File a brief with each advisor below. Resolvr will find where the reasoning split,
+            weigh the disputed numbers against live market evidence, and issue a published
+            opinion.
           </span>
         </p>
 
@@ -99,87 +110,61 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
         </div>
       </div>
 
-      {/* RIGHT — action panel */}
+      {/* RIGHT — action panel with two filings */}
       <div
         style={{
           background: 'var(--ink)',
           color: 'var(--paper-bright)',
-          padding: '24px 22px 20px',
+          padding: '22px 20px 18px',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'space-between',
+          gap: 14,
           position: 'relative',
         }}
       >
-        <div>
-          <div
-            className="eyebrow-tight"
-            style={{ color: 'var(--paper-deep)', marginBottom: 10, opacity: 0.75 }}
-          >
-            Proceeding
-          </div>
-          <div
-            className="serif"
-            style={{
-              fontSize: 19,
-              lineHeight: 1.35,
-              fontStyle: 'italic',
-              marginBottom: 18,
-              color: 'var(--paper-bright)',
-            }}
-          >
-            The desk will hear both filings, locate the divergence, ground every disputed claim
-            against the market, simulate outcomes, and publish a brief.
-          </div>
-
-          {/* Mini timeline preview */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
-              gap: 6,
-              marginBottom: 22,
-            }}
-          >
-            {['Filings', 'Forensics', 'Grounding', 'Simulation', 'Brief'].map((s, i) => (
-              <div key={s} style={{ textAlign: 'center' }}>
-                <div
-                  className="mono"
-                  style={{
-                    fontSize: 9,
-                    color: 'var(--paper-deep)',
-                    opacity: 0.7,
-                    marginBottom: 4,
-                  }}
-                >
-                  0{i + 1}
-                </div>
-                <div
-                  className="eyebrow-tight"
-                  style={{ fontSize: 8.5, color: 'var(--paper-bright)', letterSpacing: '0.1em' }}
-                >
-                  {s}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div
+          className="eyebrow-tight"
+          style={{ color: 'var(--paper-deep)', opacity: 0.75 }}
+        >
+          File Two Briefs
         </div>
 
-        <button
-          onClick={onRun}
+        <FilingField
+          label="Revenue Advisor"
+          accent="var(--forest-paper)"
+          value={scenarioA}
+          onChange={setScenarioA}
           disabled={running}
+          placeholder="Brief the Revenue advisor on the scenario…"
+        />
+        <FilingField
+          label="Risk Advisor"
+          accent="var(--crimson-paper)"
+          value={scenarioB}
+          onChange={setScenarioB}
+          disabled={running}
+          placeholder="Brief the Risk advisor on the scenario…"
+        />
+
+        <button
+          onClick={() => onRun(scenarioA, scenarioB)}
+          disabled={!canRun}
           style={{
             width: '100%',
             background: running
               ? 'transparent'
               : finished
                 ? 'var(--forest-paper)'
-                : 'var(--paper-bright)',
+                : canRun
+                  ? 'var(--paper-bright)'
+                  : 'var(--paper-deep)',
             color: running
               ? 'var(--paper-deep)'
               : finished
                 ? 'var(--forest-ink)'
-                : 'var(--ink)',
+                : canRun
+                  ? 'var(--ink)'
+                  : 'var(--ink-soft)',
             border: running ? '0.5px solid var(--paper-deep)' : 'none',
             padding: '14px 16px',
             fontFamily: 'var(--font-sans)',
@@ -187,7 +172,7 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
             fontWeight: 600,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
-            cursor: running ? 'wait' : 'pointer',
+            cursor: running ? 'wait' : canRun ? 'pointer' : 'not-allowed',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -195,7 +180,7 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
             transition: 'transform 0.18s, background 0.2s',
           }}
           onMouseEnter={(e) => {
-            if (!running && !finished) (e.currentTarget.style.transform = 'translateY(-1px)');
+            if (canRun) (e.currentTarget.style.transform = 'translateY(-1px)');
           }}
           onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
         >
@@ -205,17 +190,11 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
               The desk is in session
             </>
           ) : finished ? (
-            <>
-              ✓ Verdict on file &nbsp;·&nbsp; Re-hear case
-            </>
+            <>✓ Verdict on file &nbsp;·&nbsp; Re-hear case</>
           ) : hasResults ? (
-            <>
-              Re-open the case &nbsp;→
-            </>
+            <>Re-open the case &nbsp;→</>
           ) : (
-            <>
-              Convene the desk &nbsp;→
-            </>
+            <>Convene the desk &nbsp;→</>
           )}
         </button>
 
@@ -224,15 +203,62 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
           style={{
             color: 'var(--paper-deep)',
             opacity: 0.65,
-            marginTop: 10,
             fontSize: 8.5,
             textAlign: 'center',
           }}
         >
-          ~16 sec · 5 stages · Live market grounding
+          Live agents · 5 stages · Live market grounding
         </div>
       </div>
     </section>
+  );
+}
+
+function FilingField({
+  label,
+  accent,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  label: string;
+  accent: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  placeholder: string;
+}) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span
+        className="eyebrow-tight"
+        style={{ fontSize: 9, letterSpacing: '0.16em', color: accent }}
+      >
+        {label}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        placeholder={placeholder}
+        rows={4}
+        style={{
+          width: '100%',
+          background: 'rgba(255,255,255,0.04)',
+          color: 'var(--paper-bright)',
+          border: '0.5px solid rgba(255,255,255,0.18)',
+          borderLeft: `2px solid ${accent}`,
+          padding: '10px 12px',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 11.5,
+          lineHeight: 1.45,
+          resize: 'vertical',
+          outline: 'none',
+          opacity: disabled ? 0.55 : 1,
+        }}
+      />
+    </label>
   );
 }
 

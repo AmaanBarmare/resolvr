@@ -1,9 +1,13 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: Request) {
   const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
-  const upstream = await fetch(`${backend}/api/run`, {
+  const incoming = new URL(req.url);
+  const qs = incoming.searchParams.toString();
+  const url = qs ? `${backend}/api/run?${qs}` : `${backend}/api/run`;
+
+  const upstream = await fetch(url, {
     headers: { Accept: 'text/event-stream' },
   });
 

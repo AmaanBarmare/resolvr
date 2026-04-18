@@ -40,9 +40,9 @@ def health():
 
 
 @app.get("/api/run")
-async def run():
+async def run(scenario_a: str | None = None, scenario_b: str | None = None):
     return StreamingResponse(
-        run_pipeline(),
+        run_pipeline(scenario_a=scenario_a, scenario_b=scenario_b),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

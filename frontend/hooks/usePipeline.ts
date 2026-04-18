@@ -28,10 +28,16 @@ export function usePipeline() {
   const [state, setState] = useState<PipelineState>(initial);
   const esRef = useRef<EventSource | null>(null);
 
-  const run = useCallback(() => {
+  const run = useCallback((scenarioA?: string, scenarioB?: string) => {
     setState({ ...initial, running: true });
 
-    const es = new EventSource('/api/run');
+    const params = new URLSearchParams();
+    if (scenarioA && scenarioA.trim()) params.set('scenario_a', scenarioA.trim());
+    if (scenarioB && scenarioB.trim()) params.set('scenario_b', scenarioB.trim());
+    const qs = params.toString();
+    const url = qs ? `/api/run?${qs}` : '/api/run';
+
+    const es = new EventSource(url);
     esRef.current = es;
 
     es.onmessage = (event) => {
