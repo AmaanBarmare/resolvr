@@ -10,6 +10,7 @@ interface AuditEntry {
 
 interface Props {
   data: {
+    headline?: string;
     context: string;
     divergence_finding: string;
     recommended_decision: string;
@@ -20,12 +21,20 @@ interface Props {
   };
 }
 
+function splitHeadline(raw: string): { lead: string; tail: string } {
+  const h = (raw || '').trim();
+  if (!h) return { lead: 'On the question before the desk,', tail: 'the desk holds as follows.' };
+  // If the headline is short, use it as the lead and keep a standard tail.
+  return { lead: h.endsWith(',') ? h : `${h},`, tail: 'the desk holds as follows.' };
+}
+
 /**
  * The Brief — published as an opinion-page spread.
  * Drop cap on the lede, justified serif body, dissenting column to the side,
  * trigger conditions and citations as marginalia.
  */
 export function BriefCard({ data }: Props) {
+  const { lead, tail } = splitHeadline(data.headline || '');
   return (
     <section className="section">
       <SectionHeader
@@ -67,7 +76,7 @@ export function BriefCard({ data }: Props) {
               lineHeight: 1.05,
             }}
           >
-            On the question of APAC headcount,
+            {lead}
             <br />
             <span
               style={{
@@ -76,7 +85,7 @@ export function BriefCard({ data }: Props) {
                 color: 'var(--crimson)',
               }}
             >
-              the desk holds as follows.
+              {tail}
             </span>
           </h3>
           <div

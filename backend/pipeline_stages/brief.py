@@ -1,4 +1,5 @@
 import os
+import re
 
 from models import (
     AuditEntry,
@@ -13,8 +14,31 @@ from utils.json_utils import parse_claude_json
 
 BRIEF_MAX_TOKENS = int(os.getenv("BRIEF_MAX_TOKENS", "2500"))
 
+# The sample cases all use a 6-month decision window. Normalize any other
+# horizon the LLM drifts into so the verdict stays aligned with the case.
+TRIGGER_WINDOW_MONTHS = int(os.getenv("TRIGGER_WINDOW_MONTHS", "6"))
+
+_WITHIN_MONTHS_RE = re.compile(
+    r"within\s+\d+(?:\.\d+)?\s*(?:-\s*\d+(?:\.\d+)?\s*)?months?",
+    flags=re.IGNORECASE,
+)
+_IN_THE_NEXT_MONTHS_RE = re.compile(
+    r"in\s+the\s+next\s+\d+(?:\.\d+)?\s*months?",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_window(text: str) -> str:
+    if not text:
+        return text
+    target = f"within {TRIGGER_WINDOW_MONTHS} months"
+    text = _WITHIN_MONTHS_RE.sub(target, text)
+    text = _IN_THE_NEXT_MONTHS_RE.sub(target, text)
+    return text
+
 
 MOCK_BRIEF = {
+    "headline": "On the question of APAC headcount",
     "context": (
         "TechFlow's Revenue and Risk agents both analyzed the APAC hiring decision "
         "and reached opposite conclusions based on different close-rate assumptions."
@@ -85,6 +109,7 @@ async def run_brief(
 ) -> BriefOutput:
     if os.getenv("USE_MOCK_PIPELINE", "").lower() == "true":
         return BriefOutput(
+            headline=MOCK_BRIEF["headline"],
             context=MOCK_BRIEF["context"],
             divergence_finding=MOCK_BRIEF["divergence_finding"],
             recommended_decision=MOCK_BRIEF["recommended_decision"],
@@ -105,4 +130,16 @@ async def run_brief(
     )
     raw = await baseten_client.complete(prompt, max_tokens=BRIEF_MAX_TOKENS)
     parsed = parse_claude_json(raw, stage="brief")
+
+    # Enforce the case's decision window on any time-bound trigger.
+    if isinstance(parsed.get("recommended_decision"), str):
+        parsed["recommended_decision"] = _normalize_window(parsed["recommended_decision"])
+    if isinstance(parsed.get("rationale"), str):
+        parsed["rationale"] = _normalize_window(parsed["rationale"])
+    if isinstance(parsed.get("trigger_conditions"), list):
+        parsed["trigger_conditions"] = [
+            _normalize_window(t) if isinstance(t, str) else t
+            for t in parsed["trigger_conditions"]
+        ]
+
     return BriefOutput(**parsed)

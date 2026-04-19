@@ -79,6 +79,7 @@ class AuditEntry(BaseModel):
 
 
 class BriefOutput(BaseModel):
+    headline: str = ""
     context: str
     divergence_finding: str
     recommended_decision: str

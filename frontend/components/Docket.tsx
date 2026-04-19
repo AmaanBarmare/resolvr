@@ -8,19 +8,24 @@ interface Props {
   onRun: (scenarioA: string, scenarioB: string) => void;
 }
 
-const DEFAULT_SCENARIO_A =
-  'TechFlow Inc. is a Series A B2B SaaS company. Revenue team is considering hiring 12 new engineers in Q3 to pursue the APAC enterprise pipeline. Pull the current APAC pipeline, historical close rate, and projected ARR, then recommend a hiring decision.';
+const COMPANY_REV = 'TechFlow — Series A B2B SaaS, 42 engineers, $6M cash.';
+const COMPANY_RSK = 'TechFlow — Series A B2B SaaS, $6M cash at $680K/mo burn.';
 
-const DEFAULT_SCENARIO_B =
-  'TechFlow Inc. is a Series A B2B SaaS company. Finance is reviewing a proposal to hire 12 engineers in Q3. Pull burn rate, runway, the cost impact of the hires, and the enterprise SaaS macro outlook, then recommend a risk-appropriate hiring decision.';
+const DEFAULT_A = `${COMPANY_REV} Should we hire 12 engineers this quarter to deliver on the APAC pipeline? Give me the revenue math.`;
+const DEFAULT_B = `${COMPANY_RSK} Can we absorb 12 new engineers this quarter without wrecking runway? Give me the risk read.`;
+const SAMPLE_SUMMARY = 'Should we hire 12 engineers now to chase the APAC pipeline?';
 
 /**
- * Docket — the case sheet. Sets the conflict, frames the proceeding,
- * takes the two filings, and holds the primary call-to-action.
+ * Docket — the case sheet. Context framing, two filings, and the primary CTA.
  */
 export function Docket({ running, finished, hasResults, onRun }: Props) {
-  const [scenarioA, setScenarioA] = useState(DEFAULT_SCENARIO_A);
-  const [scenarioB, setScenarioB] = useState(DEFAULT_SCENARIO_B);
+  const [scenarioA, setScenarioA] = useState(DEFAULT_A);
+  const [scenarioB, setScenarioB] = useState(DEFAULT_B);
+
+  const resetSample = () => {
+    setScenarioA(DEFAULT_A);
+    setScenarioB(DEFAULT_B);
+  };
 
   const canRun = !running && scenarioA.trim().length > 0 && scenarioB.trim().length > 0;
 
@@ -32,45 +37,33 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
         border: '0.5px solid var(--ink-rule-strong)',
         padding: '32px 36px 28px',
         display: 'grid',
-        gridTemplateColumns: '1fr 360px',
+        gridTemplateColumns: '1fr 380px',
         gap: 40,
       }}
     >
-      {/* Corner marks — printer's registration */}
       <CornerMark style={{ top: 8, left: 8 }} />
       <CornerMark style={{ top: 8, right: 8, transform: 'rotate(90deg)' }} />
       <CornerMark style={{ bottom: 8, left: 8, transform: 'rotate(-90deg)' }} />
       <CornerMark style={{ bottom: 8, right: 8, transform: 'rotate(180deg)' }} />
 
-      {/* LEFT — case framing */}
+      {/* LEFT — framing + sample picker */}
       <div>
         <div className="eyebrow" style={{ marginBottom: 14 }}>
-          Featured Case &nbsp;&middot;&nbsp; Heard Today
+          Today&apos;s Docket &nbsp;&middot;&nbsp; Open for Filing
         </div>
 
         <h2
           className="display"
           style={{
             fontSize: 'clamp(40px, 4.6vw, 60px)',
-            margin: '0 0 4px',
+            margin: '0 0 8px',
             fontVariationSettings: '"opsz" 144, "SOFT" 20, "wght" 400',
           }}
         >
-          TechFlow Inc.
+          Two advisors.
+          <br />
+          <span style={{ fontStyle: 'italic', color: 'var(--crimson)' }}>One verdict.</span>
         </h2>
-        <div
-          className="serif"
-          style={{
-            fontSize: 22,
-            fontStyle: 'italic',
-            color: 'var(--ink-mid)',
-            marginBottom: 22,
-            letterSpacing: '-0.005em',
-          }}
-        >
-          v.&nbsp;
-          <span style={{ color: 'var(--crimson)' }}>Itself</span>
-        </div>
 
         <p
           className="serif"
@@ -82,31 +75,49 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
             maxWidth: 560,
           }}
         >
-          Two AI advisors will examine the same balance sheet, the same pipeline, the same
-          six-month window — and almost certainly arrive at directly opposed counsel.{' '}
+          File any startup decision with both advisors. The Revenue desk presses the growth case;
+          the Risk desk presses the runway case.{' '}
           <span style={{ color: 'var(--ink)', fontWeight: 500 }}>
-            File a brief with each advisor below. Resolvr will find where the reasoning split,
-            weigh the disputed numbers against live market evidence, and issue a published
-            opinion.
+            Resolvr synthesizes a case profile from your two briefs, runs both advisors live,
+            locates where their reasoning split, grounds each disputed claim against live market
+            evidence, and publishes a signed opinion.
           </span>
         </p>
 
-        {/* STATS strip */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            borderTop: '1px solid var(--ink)',
-            borderBottom: '0.5px solid var(--ink-rule)',
-            paddingTop: 14,
-            paddingBottom: 14,
-            gap: 8,
-          }}
-        >
-          <Stat label="Runway" value="$6.0M" sub="9 months" />
-          <Stat label="Burn" value="$680K" sub="per month" />
-          <Stat label="Headcount" value="42" sub="engineers" accent="var(--ink)" />
-          <Stat label="Question" value="Hire 12?" sub="or freeze" accent="var(--crimson)" />
+        {/* FEATURED CASE */}
+        <div style={{ borderTop: '1px solid var(--ink)', paddingTop: 14 }}>
+          <div
+            className="eyebrow-tight"
+            style={{ marginBottom: 10, color: 'var(--ink-mid)' }}
+          >
+            Featured Case &nbsp;·&nbsp; Edit either brief to customize
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={resetSample}
+              disabled={running}
+              style={{
+                background: 'var(--ink)',
+                color: 'var(--paper-bright)',
+                border: '0.5px solid var(--ink)',
+                padding: '8px 14px',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                cursor: running ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Hire 12 for APAC
+            </button>
+            <span
+              className="serif"
+              style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--ink-soft)' }}
+            >
+              {SAMPLE_SUMMARY}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -207,7 +218,7 @@ export function Docket({ running, finished, hasResults, onRun }: Props) {
             textAlign: 'center',
           }}
         >
-          Live agents · 5 stages · Live market grounding
+          Live agents · Live market grounding · 5 stages
         </div>
       </div>
     </section>
@@ -242,7 +253,7 @@ function FilingField({
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder={placeholder}
-        rows={4}
+        rows={5}
         style={{
           width: '100%',
           background: 'rgba(255,255,255,0.04)',
@@ -259,43 +270,6 @@ function FilingField({
         }}
       />
     </label>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  accent?: string;
-}) {
-  return (
-    <div>
-      <div className="eyebrow-tight" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
-      <div
-        className="display tabular"
-        style={{
-          fontSize: 28,
-          fontVariationSettings: '"opsz" 144, "SOFT" 0, "wght" 400',
-          color: accent || 'var(--ink)',
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-      <div
-        className="mono"
-        style={{ fontSize: 10, color: 'var(--ink-soft)', marginTop: 4, letterSpacing: '0.02em' }}
-      >
-        {sub}
-      </div>
-    </div>
   );
 }
 

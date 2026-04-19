@@ -1,91 +1,49 @@
 """Risk Agent — runs in-process against Baseten.
 
-Ported from veris/agent_b/risk_agent so we can drive the agent directly
-from the pipeline without going through the Veris sandbox. Same system
-prompt and mock tool outputs as the pre-saved Veris transcripts.
+Tool outputs are parameterized by the scenario profile built upstream, so
+every response reflects the company the user typed into the Risk brief,
+not hardcoded numbers.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from utils import baseten_client
 
 logger = logging.getLogger("risk_agent")
 
-SYSTEM_PROMPT = """You are a Risk Management Agent for a Series A B2B SaaS company.
-Your job is to analyze financial risk and make conservative headcount recommendations based on runway preservation.
+
+def _system_prompt(profile: Dict[str, Any]) -> str:
+    return f"""You are a Risk Management Agent advising {profile['company_name']} ({profile['stage']} {profile['sector']}).
+Your job is to analyze financial risk and recommend a conservative decision based on runway preservation. You are biased toward caution — when a move could compress runway, you flag it.
 
 You have access to:
 - finance_get_burn_rate: query current monthly burn
 - finance_get_runway_months: compute runway in months
-- finance_get_hire_cost_impact: compute hire cost impact on burn
-- macro_get_market_outlook: get macro enterprise SaaS conditions
+- finance_get_hire_cost_impact: compute hire/spend cost impact on burn
+- macro_get_market_outlook: get macro sector conditions and benchmark close rates
 
-When making recommendations, always cite:
+The company's decision question: {profile.get('decision_question', 'Should we absorb this additional spend?')}
+
+When making your recommendation, always cite:
 - The exact burn rate you found
 - The exact runway in months
-- The cost impact of each hire on monthly burn
-- The macro market conditions you factored in
+- The cost impact of the proposed move on monthly burn
+- The macro market conditions and benchmark close rate you factored in
 
-After you have called the tools you need, produce your FINAL recommendation as JSON
-with this exact structure (and nothing else - no preamble, no markdown):
+After calling the tools you need, produce your FINAL recommendation as JSON
+with this exact structure (and nothing else — no preamble, no markdown):
 
-{
-  "recommendation": "string - your hiring recommendation",
+{{
+  "recommendation": "string — your concrete recommendation with numbers",
   "assumptions": [
-    {"variable": "machine_readable_key", "value": "value with units", "source": "where you got this"}
+    {{"variable": "machine_readable_key", "value": "value with units", "source": "where you got this"}}
   ],
   "reasoning": "your reasoning chain as a single string"
-}"""
-
-
-def _finance_get_burn_rate(include_benefits: bool = True, period: str = "last_3_months") -> Dict[str, Any]:
-    return {
-        "monthly_burn": 680000,
-        "payroll_component": 510000,
-        "infrastructure_component": 94000,
-        "other_component": 76000,
-        "trend": "flat",
-        "period": period,
-        "include_benefits": include_benefits,
-    }
-
-
-def _finance_get_runway_months(current_cash: float = 6000000, monthly_burn: float = 680000) -> Dict[str, Any]:
-    runway = round(current_cash / monthly_burn, 2)
-    return {
-        "runway_months": runway,
-        "runway_date": "2027-01-05",
-        "conservative_estimate_months": round(runway * 0.93, 2),
-    }
-
-
-def _finance_get_hire_cost_impact(hire_count: int = 12, avg_engineer_monthly_cost: float = 18000) -> Dict[str, Any]:
-    extra = hire_count * avg_engineer_monthly_cost
-    new_burn = 680000 + extra
-    new_runway = round(6000000 / new_burn, 2)
-    return {
-        "additional_monthly_burn": extra,
-        "new_total_burn": new_burn,
-        "new_runway_months": new_runway,
-        "runway_reduction_months": round(8.82 - new_runway, 2),
-    }
-
-
-def _macro_get_market_outlook(sector: str = "enterprise_saas", horizon: str = "Q3_Q4_2026") -> Dict[str, Any]:
-    return {
-        "outlook": "contracting",
-        "sector": sector,
-        "horizon": horizon,
-        "enterprise_deal_velocity_trend": "slowing",
-        "avg_sales_cycle_extension_months": 1.5,
-        "close_rate_benchmark_range": "0.17-0.22",
-        "source": "cb_insights_q1_2026_enterprise_saas_report",
-        "confidence": "medium",
-    }
+}}"""
 
 
 TOOL_SCHEMAS: List[Dict[str, Any]] = [
@@ -136,7 +94,7 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "macro_get_market_outlook",
-            "description": "Get the macro enterprise SaaS market outlook for a sector and horizon.",
+            "description": "Get the macro market outlook for the company's sector and horizon.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -149,16 +107,82 @@ TOOL_SCHEMAS: List[Dict[str, Any]] = [
 ]
 
 
-def _dispatch(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-    if name == "finance_get_burn_rate":
-        return _finance_get_burn_rate(**args)
-    if name == "finance_get_runway_months":
-        return _finance_get_runway_months(**args)
-    if name == "finance_get_hire_cost_impact":
-        return _finance_get_hire_cost_impact(**args)
-    if name == "macro_get_market_outlook":
-        return _macro_get_market_outlook(**args)
-    raise ValueError(f"Unknown tool: {name}")
+def _build_dispatch(profile: Dict[str, Any]) -> Callable[[str, Dict[str, Any]], Dict[str, Any]]:
+    monthly_burn = int(profile["monthly_burn_usd"])
+    cash = int(profile["cash_on_hand_usd"])
+    default_runway = round(cash / monthly_burn, 2) if monthly_burn else 0.0
+    default_hire_count = int(profile.get("proposed_hire_count", 1) or 1)
+    default_hire_cost = int(profile.get("avg_hire_monthly_cost_usd", 15000) or 15000)
+    low = profile["close_rate_macro_range_low"]
+    high = profile["close_rate_macro_range_high"]
+
+    def finance_get_burn_rate(include_benefits: bool = True, period: str = "last_3_months") -> Dict[str, Any]:
+        payroll = int(monthly_burn * 0.75)
+        infra = int(monthly_burn * 0.14)
+        other = monthly_burn - payroll - infra
+        return {
+            "monthly_burn": monthly_burn,
+            "payroll_component": payroll,
+            "infrastructure_component": infra,
+            "other_component": other,
+            "trend": "flat",
+            "period": period,
+            "include_benefits": include_benefits,
+        }
+
+    def finance_get_runway_months(current_cash: float = 0, monthly_burn_arg: float = 0, **_: Any) -> Dict[str, Any]:
+        c = current_cash or cash
+        b = monthly_burn_arg or monthly_burn
+        runway = round(c / b, 2) if b else 0.0
+        return {
+            "runway_months": runway,
+            "runway_date_estimate": f"{round(runway, 1)} months from now",
+            "conservative_estimate_months": round(runway * 0.93, 2),
+        }
+
+    def finance_get_hire_cost_impact(hire_count: int = 0, avg_engineer_monthly_cost: float = 0) -> Dict[str, Any]:
+        n = int(hire_count or default_hire_count)
+        unit = float(avg_engineer_monthly_cost or default_hire_cost)
+        extra = int(n * unit)
+        new_burn = monthly_burn + extra
+        new_runway = round(cash / new_burn, 2) if new_burn else 0.0
+        return {
+            "additional_monthly_burn": extra,
+            "new_total_burn": new_burn,
+            "new_runway_months": new_runway,
+            "runway_reduction_months": round(default_runway - new_runway, 2),
+        }
+
+    def macro_get_market_outlook(sector: str = "", horizon: str = "") -> Dict[str, Any]:
+        range_str = f"{round(low * 100)}-{round(high * 100)}%"
+        return {
+            "outlook": profile.get("macro_outlook", "flat"),
+            "sector": sector or profile.get("sector", ""),
+            "horizon": horizon or "next_2_quarters",
+            "deal_velocity_trend": profile.get("macro_velocity_trend", "steady"),
+            "avg_sales_cycle_extension_months": profile.get("avg_sales_cycle_extension_months", 0),
+            "close_rate_benchmark_range": range_str,
+            "source": profile.get("close_rate_macro_source", "industry_research"),
+            "confidence": "medium",
+        }
+
+    def dispatch(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        if name == "finance_get_burn_rate":
+            return finance_get_burn_rate(**args)
+        if name == "finance_get_runway_months":
+            mapped = {}
+            if "current_cash" in args:
+                mapped["current_cash"] = args["current_cash"]
+            if "monthly_burn" in args:
+                mapped["monthly_burn_arg"] = args["monthly_burn"]
+            return finance_get_runway_months(**mapped)
+        if name == "finance_get_hire_cost_impact":
+            return finance_get_hire_cost_impact(**args)
+        if name == "macro_get_market_outlook":
+            return macro_get_market_outlook(**args)
+        raise ValueError(f"Unknown tool: {name}")
+
+    return dispatch
 
 
 def _parse_final(text: str) -> Dict[str, Any]:
@@ -170,13 +194,10 @@ def _parse_final(text: str) -> Dict[str, Any]:
         return {"recommendation": text, "assumptions": [], "reasoning": ""}
 
 
-async def run_risk_agent(scenario: str) -> Dict[str, Any]:
-    """Run the risk agent tool-loop against the given scenario.
-
-    Returns a transcript-shaped dict matching backend/data/transcript_b.json.
-    """
+async def run_risk_agent(scenario: str, profile: Dict[str, Any]) -> Dict[str, Any]:
+    dispatch = _build_dispatch(profile)
     messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": _system_prompt(profile)},
         {"role": "user", "content": scenario},
     ]
     tool_calls_log: List[Dict[str, Any]] = []
@@ -223,7 +244,7 @@ async def run_risk_agent(scenario: str) -> Dict[str, Any]:
             except json.JSONDecodeError:
                 args = {}
             try:
-                result = _dispatch(name, args)
+                result = dispatch(name, args)
             except Exception as e:  # noqa: BLE001
                 result = {"error": str(e)}
             tool_calls_log.append({"tool": name, "input": args, "output": result})
@@ -240,6 +261,7 @@ async def run_risk_agent(scenario: str) -> Dict[str, Any]:
         "agent": "risk_agent",
         "agent_role": "Risk Management",
         "scenario": scenario,
+        "company_name": profile.get("company_name", ""),
         "tool_calls": tool_calls_log,
         "final_recommendation": parsed.get("recommendation", ""),
         "key_assumptions": {

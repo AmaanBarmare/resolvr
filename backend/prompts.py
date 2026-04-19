@@ -87,13 +87,13 @@ GROUNDED MARKET DATA:
 
 CRUX VARIABLE: {crux_variable}
 
-Generate three outcome paths. For each path, state NAMED TRIGGER CONDITIONS - not probability scores. A trigger condition is a specific, measurable event (e.g. "IF Q3 pipeline closes above $3M").
+Generate three outcome paths for THE SPECIFIC DECISION this company is debating (see the decision_question in the company context). Do not default to a generic hiring scenario. For each path, state NAMED TRIGGER CONDITIONS — not probability scores. A trigger condition is a specific, measurable event (e.g. "IF 6-month pipeline closes above $3M", "IF churn stays below 2%"). All time-bound trigger conditions MUST use a 6-month horizon; do not use 3-month or 9-month windows.
 
-Path A: Follow Agent A's recommendation exactly.
-Path B: Follow Agent B's recommendation exactly.
-Hybrid: A middle path that hedges the key uncertainty. For Hybrid, the key uncertainty is the crux variable: {crux_variable}.
+Path A: Follow Agent A's recommendation exactly (name it after the specific action, e.g. "Full 30% price cut" or "Sunset self-serve now").
+Path B: Follow Agent B's recommendation exactly (name it after the opposing action, e.g. "Hold pricing" or "Retain self-serve").
+Hybrid: A middle path that hedges the key uncertainty ({crux_variable}). Name it after the specific halfway action (e.g. "Cut pricing 15% + trigger" or "Partial sunset").
 
-The Hybrid path description MUST include a specific hire count and a specific trigger threshold (e.g. "Hire 4 now, expand to 12 if Q3 pipeline closes above $3M ARR").
+The Hybrid path description MUST include a specific numeric halfway measure (e.g. "cut pricing 15%", "hire 4 of 12", "sunset self-serve for customers below $10K ARR") and a specific trigger threshold that would unlock the full action.
 
 Respond ONLY with valid JSON. No preamble, no markdown:
 
@@ -136,13 +136,15 @@ GROUNDED MARKET DATA:
 SIMULATION OUTCOMES:
 Path A: {path_a_summary}
 Path B: {path_b_summary}
-Hybrid (recommended): {hybrid_summary}
+Hybrid: {hybrid_summary}
 
-Write a professional decision brief. Requirements:
-- Recommended decision must be a single actionable sentence with a number and a condition.
+Write a professional decision brief about THIS SPECIFIC DECISION (the decision question above). Do not default to a generic hiring decision. Requirements:
+- headline must be a short editorial headline describing THIS decision, in the form "On the question of [decision]" or "On the proposal to [verb+object]". Do not mention hiring unless the decision question is about hiring. Keep it under 12 words.
+- recommended_decision must be a single actionable sentence that names the specific action from the decision question (hiring, pricing change, pivot, etc.) with a number and a trigger condition.
+- All trigger timelines MUST use a 6-month horizon (the company's decision window). Do not use 3-month, 4-month, or 9-month timelines — use "within 6 months" for every time-bound trigger.
 - Rationale must cite the specific market benchmark from the grounding data.
-- Dissenting opinion must represent Agent B's strongest case, not a strawman.
-- Exactly 3 trigger conditions - each must be specific and measurable.
+- Dissenting opinion must represent the opposing agent's strongest case, not a strawman.
+- Exactly 3 trigger conditions — each must be specific and measurable and reference the decision above, and every timed trigger MUST use a 6-month window.
 - Audit log must cite every factual claim made in the brief (min 2 entries).
 
 Do NOT use phrases like "it depends", "various factors", or "it's complicated".
@@ -151,11 +153,12 @@ Every statement must be specific and measurable.
 Respond ONLY with valid JSON. No preamble, no markdown:
 
 {{
+  "headline": "short editorial headline about THIS decision",
   "context": "1-2 sentences describing the conflict",
   "divergence_finding": "1-2 sentences naming the exact crux variable and values",
-  "recommended_decision": "single actionable sentence with specific number and trigger",
+  "recommended_decision": "single actionable sentence with specific number and trigger, referencing the actual decision",
   "rationale": "2-3 sentences citing specific benchmarks and data points",
-  "dissenting_opinion": "2-3 sentences representing Agent B's strongest case",
+  "dissenting_opinion": "2-3 sentences representing the opposing agent's strongest case",
   "trigger_conditions": [
     "condition 1 - expand trigger",
     "condition 2 - pullback trigger",

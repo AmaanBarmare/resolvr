@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
 
-from agents import run_revenue_agent, run_risk_agent
+from agents import build_scenario_profile, run_revenue_agent, run_risk_agent
 from exceptions import PipelineError
 from models import AgentOutput, Assumption, Stage1Output
 from pipeline_stages.brief import run_brief
@@ -13,19 +13,6 @@ from pipeline_stages.grounding import run_grounding
 from pipeline_stages.simulation import run_simulation
 
 DATA_DIR = Path(__file__).parent / os.getenv("DATA_DIR", "data")
-
-DEFAULT_SCENARIO_A = (
-    "TechFlow Inc. is a Series A B2B SaaS company. Revenue team is considering "
-    "hiring 12 new engineers in Q3 to pursue the APAC enterprise pipeline. "
-    "Pull the current APAC pipeline, historical close rate, and projected ARR, "
-    "then recommend a hiring decision."
-)
-DEFAULT_SCENARIO_B = (
-    "TechFlow Inc. is a Series A B2B SaaS company. Finance is reviewing a "
-    "proposal to hire 12 engineers in Q3. Pull burn rate, runway, the cost "
-    "impact of the hires, and the enterprise SaaS macro outlook, then "
-    "recommend a risk-appropriate hiring decision."
-)
 
 
 def load_json(name: str) -> dict:
@@ -71,6 +58,35 @@ def parse_agent_outputs(transcripts: Dict[str, dict]) -> Stage1Output:
     )
 
 
+def _profile_to_seed(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """Shape a scenario profile into the seed dict the downstream stages expect."""
+    return {
+        "company": profile.get("company_name", ""),
+        "industry": profile.get("sector", ""),
+        "stage": profile.get("stage", ""),
+        "financials": {
+            "runway_total_dollars": profile.get("cash_on_hand_usd"),
+            "burn_rate_monthly": profile.get("monthly_burn_usd"),
+            "runway_months": profile.get("runway_months"),
+        },
+        "team": {
+            "engineers_current": profile.get("headcount_engineers"),
+            "total_employees": profile.get("headcount_total"),
+        },
+        "pipeline": {
+            "total_value": profile.get("pipeline_value_usd"),
+            "deal_count": profile.get("deal_count"),
+            "primary_region": profile.get("region"),
+            "avg_deal_size": profile.get("avg_deal_size_usd"),
+        },
+        "hire_cost": {
+            "per_engineer_monthly": profile.get("avg_hire_monthly_cost_usd"),
+            "hiring_batch": profile.get("proposed_hire_count"),
+        },
+        "decision_question": profile.get("decision_question", ""),
+    }
+
+
 def _event(stage: Any, status: str, *, data: Any = None, message: str = None) -> str:
     payload: dict = {"stage": stage, "status": status}
     if data is not None:
@@ -84,9 +100,13 @@ def _event(stage: Any, status: str, *, data: Any = None, message: str = None) ->
 MOCK_DELAY = float(os.getenv("MOCK_STAGE_DELAY_SECONDS", "1.2"))
 
 
-async def _run_live_agents(scenario_a: str, scenario_b: str) -> Dict[str, dict]:
-    revenue_task = asyncio.create_task(run_revenue_agent(scenario_a))
-    risk_task = asyncio.create_task(run_risk_agent(scenario_b))
+async def _run_live_agents(
+    scenario_a: str,
+    scenario_b: str,
+    profile: Dict[str, Any],
+) -> Dict[str, dict]:
+    revenue_task = asyncio.create_task(run_revenue_agent(scenario_a, profile))
+    risk_task = asyncio.create_task(run_risk_agent(scenario_b, profile))
     agent_a, agent_b = await asyncio.gather(revenue_task, risk_task)
 
     for label, transcript in (("revenue_agent", agent_a), ("risk_agent", agent_b)):
@@ -111,23 +131,39 @@ async def run_pipeline(
     scenario_b: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     mock = os.getenv("USE_MOCK_PIPELINE", "").lower() == "true"
-    seed = load_json("seed.json")
 
-    scenario_a = (scenario_a or "").strip() or DEFAULT_SCENARIO_A
-    scenario_b = (scenario_b or "").strip() or DEFAULT_SCENARIO_B
-
-    try:
-        # Stage 1 — run both advisors live (or load pre-saved transcripts in mock mode)
+    scenario_a = (scenario_a or "").strip()
+    scenario_b = (scenario_b or "").strip()
+    if not mock and (not scenario_a or not scenario_b):
         yield _event(
             1,
-            "loading",
-            message="Dispatching the Revenue & Risk advisors…",
+            "error",
+            message="Both Revenue and Risk briefs are required.",
         )
+        return
+
+    try:
+        # Stage 1 — synthesize a scenario profile, then run both advisors live
         if mock:
+            yield _event(1, "loading", message="Loading saved transcripts…")
             transcripts = load_transcripts()
+            seed = load_json("seed.json")
             await asyncio.sleep(MOCK_DELAY * 0.5)
         else:
-            transcripts = await _run_live_agents(scenario_a, scenario_b)
+            yield _event(
+                1,
+                "loading",
+                message="Building the case profile from the two briefs…",
+            )
+            profile = await build_scenario_profile(scenario_a, scenario_b)
+            yield _event(
+                1,
+                "loading",
+                message=f"Dispatching the Revenue & Risk advisors on {profile.get('company_name', 'the case')}…",
+            )
+            transcripts = await _run_live_agents(scenario_a, scenario_b, profile)
+            seed = _profile_to_seed(profile)
+
         stage1 = parse_agent_outputs(transcripts)
         yield _event(1, "complete", data=stage1.model_dump())
 
@@ -142,7 +178,7 @@ async def run_pipeline(
         yield _event(
             3,
             "loading",
-            message="Querying You.com for enterprise SaaS benchmarks...",
+            message="Querying You.com for market benchmarks...",
         )
         if mock:
             await asyncio.sleep(MOCK_DELAY)
@@ -172,7 +208,10 @@ async def run_pipeline(
 
 
 async def _main_cli() -> None:
-    async for chunk in run_pipeline():
+    async for chunk in run_pipeline(
+        "Healthbit, a Series A B2B health-tech company, is considering doubling its sales team to chase hospital contracts in Q3.",
+        "Healthbit, a Series A B2B health-tech company, is reviewing a proposal to double its sales team; evaluate risk given current runway.",
+    ):
         print(chunk, end="")
 
 
