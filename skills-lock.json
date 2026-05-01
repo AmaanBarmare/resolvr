@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-integration": {
+      "source": "veris-ai/veris-skills",
+      "sourceType": "github",
+      "skillPath": "skills/agent-integration/SKILL.md",
+      "computedHash": "a30ea1fe91a5f860b427d38215d6dbad86e3c0e468102973b36a911a2395e37d"
+    }
+  }
+}

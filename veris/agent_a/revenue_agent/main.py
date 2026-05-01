@@ -150,13 +150,9 @@ async def handle_message(request: Request):
             "agent": "revenue_agent",
             "agent_role": "Revenue Strategy",
             "tool_calls": result.get("tool_calls", []),
-            "final_recommendation": parsed.get("recommendation", ""),
-            "key_assumptions": {
-                a["variable"]: {"value": a.get("value", ""), "source": a.get("source", "")}
-                for a in parsed.get("assumptions", [])
-                if "variable" in a
-            },
-            "reasoning_steps": [parsed.get("reasoning", "")] if parsed.get("reasoning") else [],
+            "recommendation": parsed.get("recommendation", ""),
+            "assumptions": parsed.get("assumptions", []),
+            "reasoning": parsed.get("reasoning", ""),
             "confidence": "high",
         }
         if result.get("error"):
@@ -168,15 +164,19 @@ async def handle_message(request: Request):
             "agent": "revenue_agent",
             "agent_role": "Revenue Strategy",
             "tool_calls": [],
-            "final_recommendation": "",
-            "key_assumptions": {},
-            "reasoning_steps": [],
+            "recommendation": "",
+            "assumptions": [],
+            "reasoning": "",
             "error": str(e),
             "confidence": "none",
         }
-    # Return transcript as a nested object, not a double-serialized string.
     logger.info("Received transcript")
-    return {"response": transcript}
+    payload = {
+        "recommendation": transcript.get("recommendation", ""),
+        "assumptions": transcript.get("assumptions", []),
+        "reasoning": transcript.get("reasoning", ""),
+    }
+    return {"response": json.dumps(payload), "transcript": transcript}
 
 
 @app.get("/health")
