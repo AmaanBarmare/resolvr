@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -13,6 +15,34 @@ from pipeline_stages.grounding import run_grounding
 from pipeline_stages.simulation import run_simulation
 
 DATA_DIR = Path(__file__).parent / os.getenv("DATA_DIR", "data")
+CASES_DIR = DATA_DIR / "cases"
+
+
+def _save_case(
+    case_id: str,
+    stage_data: Dict[int, Any],
+    scenario_a: str,
+    scenario_b: str,
+) -> None:
+    """Persist a completed run to a local JSON file (per CLAUDE.md: no DB)."""
+    CASES_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "case_id": case_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "scenarios": {"a": scenario_a, "b": scenario_b},
+        "stage_data": {str(k): v for k, v in stage_data.items()},
+    }
+    with open(CASES_DIR / f"{case_id}.json", "w") as f:
+        json.dump(payload, f, indent=2)
+
+
+def load_case(case_id: str) -> Optional[Dict[str, Any]]:
+    """Read a saved case by ID. Returns None if not found."""
+    path = CASES_DIR / f"{case_id}.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)
 
 
 def load_json(name: str) -> dict:
@@ -142,6 +172,9 @@ async def run_pipeline(
         )
         return
 
+    case_id = uuid.uuid4().hex[:12]
+    captured: Dict[int, Any] = {}
+
     try:
         # Stage 1 — synthesize a scenario profile, then run both advisors live
         if mock:
@@ -165,14 +198,16 @@ async def run_pipeline(
             seed = _profile_to_seed(profile)
 
         stage1 = parse_agent_outputs(transcripts)
-        yield _event(1, "complete", data=stage1.model_dump())
+        captured[1] = stage1.model_dump()
+        yield _event(1, "complete", data=captured[1])
 
         # Stage 2 — Forensics
         yield _event(2, "loading", message="Running forensics agent...")
         if mock:
             await asyncio.sleep(MOCK_DELAY)
         forensics = await run_forensics(transcripts)
-        yield _event(2, "complete", data=forensics.model_dump())
+        captured[2] = forensics.model_dump()
+        yield _event(2, "complete", data=captured[2])
 
         # Stage 3 — Grounding
         yield _event(
@@ -183,23 +218,34 @@ async def run_pipeline(
         if mock:
             await asyncio.sleep(MOCK_DELAY)
         grounding = await run_grounding(forensics)
-        yield _event(3, "complete", data=grounding.model_dump())
+        captured[3] = grounding.model_dump()
+        yield _event(3, "complete", data=captured[3])
 
         # Stage 4 — Simulation
         yield _event(4, "loading", message="Simulating outcome paths...")
         if mock:
             await asyncio.sleep(MOCK_DELAY)
         simulation = await run_simulation(forensics, grounding, seed)
-        yield _event(4, "complete", data=simulation.model_dump())
+        captured[4] = simulation.model_dump()
+        yield _event(4, "complete", data=captured[4])
 
         # Stage 5 — Brief
         yield _event(5, "loading", message="Generating decision brief...")
         if mock:
             await asyncio.sleep(MOCK_DELAY)
         brief = await run_brief(forensics, grounding, simulation, seed)
-        yield _event(5, "complete", data=brief.model_dump())
+        captured[5] = brief.model_dump()
+        yield _event(5, "complete", data=captured[5])
 
-        yield _event("done", "complete")
+        # Persist the completed case so it can be re-opened via /api/case/{id}
+        try:
+            _save_case(case_id, captured, scenario_a, scenario_b)
+        except Exception:  # noqa: BLE001
+            # Persistence failure shouldn't break the user-facing run.
+            pass
+
+        # Final event includes the case_id so the frontend can update the URL.
+        yield f"data: {json.dumps({'stage': 'done', 'status': 'complete', 'case_id': case_id})}\n\n"
 
     except PipelineError as e:
         yield _event(e.stage, "error", message=e.message)

@@ -49,3 +49,6 @@ veris/**/.veris/
 
 # Local data overrides (keep committed seed + transcripts; ignore scratch copies)
 backend/data/*.local.json
+
+# Saved arbitration cases (user-generated, written at runtime)
+backend/data/cases/

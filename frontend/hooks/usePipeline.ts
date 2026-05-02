@@ -12,6 +12,7 @@ export interface PipelineState {
   error: { stage: StageKey; message: string } | null;
   stageData: Partial<Record<StageNumber, any>>;
   finished: boolean;
+  caseId: string | null;
 }
 
 const initial: PipelineState = {
@@ -22,6 +23,7 @@ const initial: PipelineState = {
   error: null,
   stageData: {},
   finished: false,
+  caseId: null,
 };
 
 export function usePipeline() {
@@ -68,7 +70,13 @@ export function usePipeline() {
       }
 
       if (parsed.stage === 'done') {
-        setState((s) => ({ ...s, running: false, activeStage: null, finished: true }));
+        setState((s) => ({
+          ...s,
+          running: false,
+          activeStage: null,
+          finished: true,
+          caseId: parsed.case_id || s.caseId,
+        }));
         es.close();
         return;
       }
@@ -96,5 +104,55 @@ export function usePipeline() {
     };
   }, []);
 
-  return { state, run };
+  /**
+   * Load a previously-saved case by ID — powers shareable /?case={uuid} URLs.
+   * Populates stageData immediately (no SSE replay) so visitors see the full
+   * arbitration without re-watching the 25s stream.
+   */
+  const loadCase = useCallback(async (caseId: string) => {
+    setState({ ...initial, running: true });
+    try {
+      const res = await fetch(`/api/case/${encodeURIComponent(caseId)}`);
+      const body = await res.json();
+      if (!res.ok || body.error) {
+        setState({
+          ...initial,
+          error: {
+            stage: 'case',
+            message: body.error === 'case_not_found'
+              ? `Case ${caseId} not found.`
+              : body.error || `Failed to load case ${caseId}.`,
+          },
+        });
+        return;
+      }
+      const stageMap: Partial<Record<StageNumber, any>> = {};
+      const completed: StageNumber[] = [];
+      const raw = (body.stage_data || {}) as Record<string, any>;
+      for (const key of Object.keys(raw)) {
+        const n = Number(key) as StageNumber;
+        if (n >= 1 && n <= 5) {
+          stageMap[n] = raw[key];
+          completed.push(n);
+        }
+      }
+      setState({
+        running: false,
+        activeStage: null,
+        completedStages: completed.sort((a, b) => a - b),
+        loadingMessage: '',
+        error: null,
+        stageData: stageMap,
+        finished: true,
+        caseId: body.case_id || caseId,
+      });
+    } catch (e: any) {
+      setState({
+        ...initial,
+        error: { stage: 'case', message: e?.message || 'Failed to load case.' },
+      });
+    }
+  }, []);
+
+  return { state, run, loadCase };
 }

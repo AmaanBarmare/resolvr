@@ -12,8 +12,35 @@ import { BriefCard } from '../components/BriefCard';
 import { ActNav } from '../components/ActNav';
 
 export default function Page() {
-  const { state, run } = usePipeline();
-  const { stageData, activeStage, completedStages, loadingMessage, finished, error, running } = state;
+  const { state, run, loadCase } = usePipeline();
+  const { stageData, activeStage, completedStages, loadingMessage, finished, error, running, caseId } = state;
+
+  // On mount, if the URL carries ?case={uuid}, fetch and render that saved case.
+  // We only attempt this once per page load to avoid loops.
+  const caseLoadAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (caseLoadAttemptedRef.current) return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('case');
+    if (id) {
+      caseLoadAttemptedRef.current = true;
+      loadCase(id);
+    }
+  }, [loadCase]);
+
+  // When a fresh run completes and we have a case_id from the backend, write it
+  // to the URL via replaceState so the page is shareable. (replaceState — not
+  // pushState — to avoid polluting browser history with every run.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!caseId) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('case') === caseId) return;
+    params.set('case', caseId);
+    const url = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', url);
+  }, [caseId]);
 
   const groundedByVar = useMemo(() => {
     const g = stageData[3] as { grounded_assumptions?: any[] } | undefined;
@@ -126,12 +153,74 @@ export default function Page() {
         </>
       )}
 
+      {/* Veris attribution — surfaces the validation layer */}
+      <div
+        style={{
+          marginTop: 28,
+          paddingTop: 16,
+          paddingBottom: 14,
+          borderTop: '0.5px solid var(--ink-rule)',
+          borderBottom: '0.5px solid var(--ink-rule)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'baseline',
+          gap: 14,
+        }}
+      >
+        <span
+          className="eyebrow-tight"
+          style={{ color: 'var(--ink-mid)', letterSpacing: '0.22em' }}
+        >
+          ✓ Validated on Veris AI
+        </span>
+        <span
+          className="serif"
+          style={{
+            fontStyle: 'italic',
+            fontSize: 12.5,
+            color: 'var(--ink-mid)',
+          }}
+        >
+          Both advisors hold 7/7 across all grader categories — data accuracy, tool
+          orchestration, recommendation specificity, assumption transparency, output
+          structure, numeric citation, and tool-parameter correctness.
+        </span>
+        <span style={{ flex: 1, minWidth: 12 }} />
+        <a
+          href="https://console.veris.ai/simulations/run_tc9dinezyn8xvkkzdn23j"
+          target="_blank"
+          rel="noreferrer"
+          className="serif"
+          style={{
+            fontSize: 12,
+            fontStyle: 'italic',
+            color: 'var(--ink)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Revenue audit ↗
+        </a>
+        <span style={{ color: 'var(--ink-faint)' }}>·</span>
+        <a
+          href="https://console.veris.ai/simulations/run_kxoileyk2zltd7e9hg414"
+          target="_blank"
+          rel="noreferrer"
+          className="serif"
+          style={{
+            fontSize: 12,
+            fontStyle: 'italic',
+            color: 'var(--ink)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Risk audit ↗
+        </a>
+      </div>
+
       {/* Footer colophon */}
       <footer
         style={{
-          marginTop: 24,
-          paddingTop: 18,
-          borderTop: '0.5px solid var(--ink-rule)',
+          marginTop: 18,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'baseline',

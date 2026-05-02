@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 # Load .env from the project root (parent of backend/)
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from pipeline import load_json, run_pipeline  # noqa: E402
+from pipeline import load_case, load_json, run_pipeline  # noqa: E402
 
 app = FastAPI(title="Resolvr")
 
@@ -50,3 +50,12 @@ async def run(scenario_a: str | None = None, scenario_b: str | None = None):
             "Connection": "keep-alive",
         },
     )
+
+
+@app.get("/api/case/{case_id}")
+def get_case(case_id: str):
+    """Return a previously-saved arbitration by ID (powers shareable URLs)."""
+    saved = load_case(case_id)
+    if saved is None:
+        return {"error": "case_not_found", "case_id": case_id}
+    return saved
