@@ -54,11 +54,11 @@ Final answer format (Turn 4 only): respond with ONLY a JSON object (no preamble,
 {
   "recommendation": "one sentence including the exact engineer headcount AND the timeline (use the timeline_months value the projection tool returned, e.g. 'hire X engineers over the next N months')",
   "assumptions": [
-    {"variable": "pipeline_value", "value": "tool-returned value with units", "source": "salesforce_get_opportunities"},
-    {"variable": "close_rate", "value": "tool-returned value with units", "source": "forecast_get_close_rate"},
-    {"variable": "projected_arr", "value": "tool-returned value with units", "source": "forecast_get_arr_projection"}
+    {"variable": "pipeline_value", "value": "tool-returned value with units, e.g. '$4.2M'", "source": "salesforce_get_opportunities"},
+    {"variable": "close_rate", "value": "tool-returned value as a percentage, e.g. '34%'", "source": "forecast_get_close_rate"},
+    {"variable": "projected_arr", "value": "tool-returned value with units, e.g. '$1,428,000'", "source": "forecast_get_arr_projection"}
   ],
-  "reasoning": "step-by-step, MUST include: (1) quote the exact pipeline_value, close_rate, projected_arr, and timeline_months the tools returned; (2) state your engineer-capacity assumption explicitly (e.g. 'each engineer supports $X of new ARR'); (3) show the arithmetic that produces the headcount (projected_arr ÷ capacity_per_engineer = N engineers); (4) tie the timeline to timeline_months."
+  "reasoning": "step-by-step, MUST include: (1) quote the exact pipeline_value, close_rate (as a percent), projected_arr, and timeline_months the tools returned; (2) use a capacity assumption of $150,000 projected new ARR per engineer (state this explicitly as: 'each engineer supports $150,000 of new ARR') unless the scenario specifies a different figure; (3) show the arithmetic that produces the headcount (projected_arr ÷ $150,000 = N engineers); (4) tie the timeline to timeline_months."
 }"""
 
 

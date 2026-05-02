@@ -55,14 +55,14 @@ Do NOT call multiple tools in one turn. Do NOT emit final output before Turn 5. 
 Final answer format (Turn 5 only): respond with ONLY a JSON object (no preamble, no markdown fences, no commentary) of this shape:
 
 {
-  "recommendation": "one sentence including the exact engineer headcount AND a concrete timeline (e.g. 'hire over the next N months' or 'pause hiring until runway recovers above X months')",
+  "recommendation": "one sentence with (a) an exact integer engineer headcount to hire (use 0 if you are recommending against any hires now) AND (b) a concrete duration expressed in months (e.g. 'hire 3 engineers over the next 3 months' or 'hire 0 engineers for the next 3 months while we monitor runway'). The timeline MUST be a numeric duration like 'over the next N months' or 'for the next N months' — NEVER an open-ended condition like 'until runway recovers'.",
   "assumptions": [
-    {"variable": "monthly_burn", "value": "tool-returned value with units", "source": "finance_get_burn_rate"},
-    {"variable": "runway_months", "value": "tool-returned value with units", "source": "finance_get_runway_months"},
-    {"variable": "market_outlook", "value": "tool-returned value", "source": "macro_get_market_outlook"},
-    {"variable": "hire_cost_impact", "value": "tool-returned value with units", "source": "finance_get_hire_cost_impact"}
+    {"variable": "monthly_burn", "value": "tool-returned value with units, e.g. '$680,000/month'", "source": "finance_get_burn_rate"},
+    {"variable": "runway_months", "value": "tool-returned value with units, e.g. '8.82 months'", "source": "finance_get_runway_months"},
+    {"variable": "market_outlook", "value": "tool-returned value, e.g. 'contracting'", "source": "macro_get_market_outlook"},
+    {"variable": "hire_cost_impact", "value": "tool-returned post-hire cash duration with units, e.g. '7.79 months at 5 proposed hires'", "source": "finance_get_hire_cost_impact"}
   ],
-  "reasoning": "step-by-step, MUST include: (1) quote the exact monthly_burn, runway_months, and the new_runway_months the hire-impact tool returned; (2) state your runway-floor assumption explicitly (e.g. 'we will not let runway drop below N months'); (3) show the arithmetic that produces the headcount (compare new_runway_months to your floor); (4) tie the recommendation to the macro outlook the tool returned."
+  "reasoning": "step-by-step. STRICT RULES — quote ONLY tool-returned values. Do NOT compute, infer, or invent values for any hire count other than the one you called the tool with. Do NOT compute alternative scenarios. LINGUISTIC RULE — the word 'runway' may appear ONLY when quoting the runway_months value from finance_get_runway_months. When discussing the value from finance_get_hire_cost_impact, call it 'post-hire cash duration' or 'cash duration' — NEVER 'runway', 'new runway', or 'projected runway'. The 8-month policy is the '8-month policy floor' — NEVER 'runway floor'. MUST include: (1) FROM finance_get_burn_rate: quote monthly_burn with $ and /month units (e.g. '$680,000/month'); (2) FROM finance_get_runway_months: quote runway_months with 'months' unit (e.g. 'current runway is 8.82 months'); (3) FROM finance_get_hire_cost_impact: quote the post-hire cash duration the tool returned at the user's proposed hire count (e.g. 'finance_get_hire_cost_impact returned a post-hire cash duration of 7.79 months for the proposed 5 hires'); (4) state the 8-month policy floor (e.g. 'we apply an internal 8-month policy floor as a risk threshold'); (5) BINARY DECISION RULE — if the post-hire cash duration is at or above 8 months, recommend the user's proposed hire count; if it is below 8 months, recommend 0 engineers. Do NOT compute or quote duration values for any hire count other than the one the tool was called with; (6) tie the recommendation to the macro outlook the tool returned."
 }"""
 
 

@@ -10,23 +10,26 @@ from agents import function_tool
 
 
 @function_tool
-def salesforce_get_opportunities(stage: str = "qualified", region: str = "APAC") -> Dict[str, Any]:
+def salesforce_get_opportunities(stage: str = "all", region: str = "APAC") -> Dict[str, Any]:
     """Query the current deal pipeline from Salesforce.
 
     Args:
-        stage: Deal stage filter (e.g. qualified, negotiation).
+        stage: Deal stage filter. Use "all" for the total pipeline; specific stages are "qualified", "proposal", "negotiation".
         region: Region filter, e.g. APAC.
     """
+    stage_breakdown = {
+        "negotiation": 1200000,
+        "proposal": 1800000,
+        "qualified": 1200000,
+    }
+    total_pipeline_value = stage_breakdown.get(stage, 4200000)
     return {
-        "total_pipeline_value": 4200000,
+        "total_pipeline_value": total_pipeline_value,
         "deal_count": 23,
         "avg_deal_size": 182608,
         "region": region,
-        "stage_breakdown": {
-            "negotiation": 1200000,
-            "proposal": 1800000,
-            "qualified": 1200000,
-        },
+        "stage_filter": stage,
+        "stage_breakdown": stage_breakdown,
         "top_deals": [
             {"name": "Nexus Corp", "value": 480000, "stage": "negotiation"},
             {"name": "Pacific Systems", "value": 360000, "stage": "proposal"},
