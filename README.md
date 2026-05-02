@@ -271,6 +271,20 @@ The fix was three lines of code — one new file declaring the proxy route. But 
 
 **The lesson:** unit tests verify pieces, end-to-end tests verify the system. Always do the actual user gesture on the actual final flow before calling something done.
 
+### 7. The deploy lied twice in a row.
+
+After everything worked locally, I deployed to Vercel as two services on one domain — Next.js frontend at `/`, FastAPI backend at `/_/backend`. The browser hit `/api/run`, which the frontend forwards to the backend. On localhost this all worked. On Vercel, every run came back **500**.
+
+**First wrong hypothesis: the backend is broken.** I curled the backend directly at `/_/backend/health` — it returned 200. The backend was fine. The 500 was coming from the *forwarder*, not the backend.
+
+**Second wrong hypothesis: a Vercel security feature.** Vercel has a thing called "Deployment Protection" that puts a 401 password gate on the unique deployment URL (the long ugly one with the hash). I'd told the forwarder to use a built-in environment variable called `VERCEL_URL`, which resolves to that gated URL. So the forwarder was getting blocked by Vercel's own auth wall trying to reach a service on the same deployment. I "fixed" this by switching to use the public-facing alias the user is actually visiting (e.g. `resolvr-rosy.vercel.app`) — which is *not* gated. Pushed. Still 500.
+
+**The actual cause: Vercel auto-injects an environment variable I didn't know about.** When you deploy multi-service, Vercel quietly sets `NEXT_PUBLIC_BACKEND_URL=/_/backend` at build time so simple apps "just work." But that value is a *relative path*, not a full URL. My code was reading that env var first, getting `/_/backend`, and handing it to `fetch()` — which threw `TypeError: Failed to parse URL` because `fetch()` requires `https://...`. The actual error was a one-line message buried in the function logs.
+
+The fix was inverting the priority: on Vercel, *always* derive the backend URL from the user's own request host (`new URL(req.url)` gives me `https://resolvr-rosy.vercel.app`), and *only* fall back to the env var for local development. Three lines. Worked immediately.
+
+**The lesson:** "it works locally" hides three different production-only problems — auth gates that don't exist locally, env vars the platform injects on your behalf, and routing that depends on URLs you don't control. The way I narrowed it down was by reading the actual function logs (`vercel logs`) and trusting the error message instead of my model of what *should* be happening. The error said `Failed to parse URL from /_/backend/...` — that's literally the answer, but I'd already convinced myself it was an auth problem.
+
 ### What I'd take into an interview
 
 - **Debugging is mostly about identifying which layer the bug lives in.** Half my time on this project was spent at the wrong layer.
@@ -278,6 +292,7 @@ The fix was three lines of code — one new file declaring the proxy route. But 
 - **More constraints don't always produce better behavior in AI systems.** Sometimes loosening a constraint is the fix.
 - **End-to-end tests catch what unit tests miss.** Always click the real button.
 - **When you have two copies of the same code, decide upfront whether you're going to enforce parity by automation, by discipline, or accept drift.** All three are valid; pretending the problem isn't there is not.
+- **Trust the error message in the logs over your mental model.** When a deploy is mysteriously broken, the first move is to read what the platform actually says happened, not to theorize. I lost a deploy cycle to a confident wrong guess before I read the one-line error that named the problem directly.
 
 ---
 
