@@ -1,141 +1,106 @@
 """Revenue Agent — runs inside a Veris sandbox.
 
-Exposes a POST / endpoint. Veris posts a scenario message; we loop through
-the OpenAI-compatible tool-use protocol against Baseten until the model
-emits a final JSON recommendation.
+Uses the OpenAI Agents SDK so Veris's auto-instrumentation captures the
+agent workflow as trace events the grader can read. The SDK is pointed at
+Baseten via a custom AsyncOpenAI client. We deliberately do NOT use
+`output_type` because forcing structured output on this model causes it
+to skip subsequent tool calls and fabricate values — instead we instruct
+the model to emit JSON via the prompt and parse it from the text response.
 """
 
 import json
 import logging
 import os
-from typing import Any, Dict, List
+import re
+import sys
 
 import uvicorn
+from agents import Agent, ModelSettings, OpenAIChatCompletionsModel, Runner
 from fastapi import FastAPI, Request
 from openai import AsyncOpenAI
 
-from revenue_agent.tools import TOOL_SCHEMAS, dispatch
+from revenue_agent.tools import (
+    forecast_get_arr_projection,
+    forecast_get_close_rate,
+    salesforce_get_opportunities,
+)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 logger = logging.getLogger("revenue_agent")
 
-BASETEN_API_KEY = os.getenv("BASETEN_API_KEY", "")
-BASETEN_MODEL_ID = os.getenv("BASETEN_MODEL_ID", "openai/gpt-oss-120b")
-BASETEN_BASE_URL = os.getenv("BASETEN_BASE_URL", "https://inference.baseten.co/v1")
 PORT = int(os.getenv("PORT", "8001"))
+
 
 SYSTEM_PROMPT = """You are a Revenue Strategy Agent for a Series A B2B SaaS company.
 Your job is to analyze pipeline data and recommend hiring decisions based on revenue opportunity.
 
-You have access to:
-- salesforce_get_opportunities: query the current deal pipeline
-- forecast_get_close_rate: get historical close rate from internal CRM
-- forecast_get_arr_projection: project ARR based on pipeline and close rate
+ABSOLUTE TOOL-CALL REQUIREMENT — VIOLATION FAILS THE TASK:
 
-When making recommendations, always cite:
-- The exact pipeline value you found
-- The exact close rate you used and its source
-- The projected ARR impact
-- The specific number of engineers you recommend hiring
+Before you may emit any final answer, the conversation history MUST contain tool-result messages from ALL THREE of these tools:
+1. salesforce_get_opportunities
+2. forecast_get_close_rate
+3. forecast_get_arr_projection
 
-After you have called the tools you need, produce your FINAL recommendation as JSON
-with this exact structure (and nothing else - no preamble, no markdown):
+Workflow:
+- Turn 1: call salesforce_get_opportunities. Wait for the result.
+- Turn 2: call forecast_get_close_rate. Wait for the result.
+- Turn 3: call forecast_get_arr_projection (passing the pipeline value and close rate you just received). Wait for the result.
+- Turn 4 (and only Turn 4): emit the final answer.
+
+Do NOT call multiple tools in one turn. Do NOT emit final output before Turn 4. Do NOT estimate, infer, or guess any number. If you "know" what the close rate or projected ARR probably is, you still must call the tool — the actual value may differ from your guess.
+
+Final answer format (Turn 4 only): respond with ONLY a JSON object (no preamble, no markdown fences, no commentary) of this shape:
 
 {
-  "recommendation": "string - your hiring recommendation",
+  "recommendation": "one sentence including the exact engineer headcount AND the timeline (use the timeline_months value the projection tool returned, e.g. 'hire X engineers over the next N months')",
   "assumptions": [
-    {"variable": "machine_readable_key", "value": "value with units", "source": "where you got this"}
+    {"variable": "pipeline_value", "value": "tool-returned value with units", "source": "salesforce_get_opportunities"},
+    {"variable": "close_rate", "value": "tool-returned value with units", "source": "forecast_get_close_rate"},
+    {"variable": "projected_arr", "value": "tool-returned value with units", "source": "forecast_get_arr_projection"}
   ],
-  "reasoning": "your reasoning chain as a single string"
+  "reasoning": "step-by-step, MUST include: (1) quote the exact pipeline_value, close_rate, projected_arr, and timeline_months the tools returned; (2) state your engineer-capacity assumption explicitly (e.g. 'each engineer supports $X of new ARR'); (3) show the arithmetic that produces the headcount (projected_arr ÷ capacity_per_engineer = N engineers); (4) tie the timeline to timeline_months."
 }"""
 
 
-app = FastAPI()
-
-
-def _client() -> AsyncOpenAI:
-    # Re-read env at call time so the containerized runtime sees injected vars.
+def _build_model() -> OpenAIChatCompletionsModel:
     api_key = os.getenv("BASETEN_API_KEY", "")
-    base_url = os.getenv("BASETEN_BASE_URL", BASETEN_BASE_URL)
+    base_url = os.getenv("BASETEN_BASE_URL", "https://inference.baseten.co/v1")
     if not api_key:
-        logger.warning("BASETEN_API_KEY is empty at call time — LLM calls will 401")
-    return AsyncOpenAI(api_key=api_key, base_url=base_url)
+        logger.warning("BASETEN_API_KEY is empty at startup")
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    return OpenAIChatCompletionsModel(
+        model=os.getenv("BASETEN_MODEL_ID", "openai/gpt-oss-120b"),
+        openai_client=client,
+    )
 
 
-async def _run_tool_loop(user_message: str) -> Dict[str, Any]:
-    client = _client()
-    model_id = os.getenv("BASETEN_MODEL_ID", BASETEN_MODEL_ID)
-    messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_message},
-    ]
-    tool_calls_log: List[Dict[str, Any]] = []
-
-    for _ in range(8):  # hard cap on loop iterations
-        try:
-            response = await client.chat.completions.create(
-                model=model_id,
-                max_tokens=1500,
-                temperature=0.2,
-                messages=messages,
-                tools=TOOL_SCHEMAS,
-                tool_choice="auto",
-                extra_body={"reasoning_effort": "low"},
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.exception("Baseten call failed: %s", e)
-            return {"final_text": "", "tool_calls": tool_calls_log, "error": str(e)}
-        msg = response.choices[0].message
-
-        if not msg.tool_calls:
-            # Final assistant text
-            return {"final_text": msg.content or "", "tool_calls": tool_calls_log}
-
-        # Record assistant message including the tool call(s)
-        messages.append(
-            {
-                "role": "assistant",
-                "content": msg.content or "",
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                    }
-                    for tc in msg.tool_calls
-                ],
-            }
-        )
-
-        for tc in msg.tool_calls:
-            name = tc.function.name
-            try:
-                args = json.loads(tc.function.arguments or "{}")
-            except json.JSONDecodeError:
-                args = {}
-            try:
-                result = dispatch(name, args)
-            except Exception as e:  # noqa: BLE001
-                result = {"error": str(e)}
-            tool_calls_log.append({"tool": name, "input": args, "output": result})
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": json.dumps(result),
-                }
-            )
-
-    return {"final_text": "", "tool_calls": tool_calls_log}
+_agent = Agent(
+    name="revenue_agent",
+    instructions=SYSTEM_PROMPT,
+    tools=[
+        salesforce_get_opportunities,
+        forecast_get_close_rate,
+        forecast_get_arr_projection,
+    ],
+    model=_build_model(),
+    model_settings=ModelSettings(tool_choice="required"),
+    reset_tool_choice=True,
+)
 
 
-def _parse_final(text: str) -> Dict[str, Any]:
+def _extract_json(text: str) -> str:
+    cleaned = re.sub(r"```json|```", "", text).strip()
     try:
-        start = text.index("{")
-        end = text.rindex("}") + 1
-        return json.loads(text[start:end])
-    except Exception:
-        return {"recommendation": text, "assumptions": [], "reasoning": ""}
+        start = cleaned.index("{")
+        end = cleaned.rindex("}") + 1
+        candidate = cleaned[start:end]
+        json.loads(candidate)
+        return candidate
+    except (ValueError, json.JSONDecodeError):
+        return cleaned
+
+
+app = FastAPI()
 
 
 @app.post("/")
@@ -144,39 +109,12 @@ async def handle_message(request: Request):
     user_message = body.get("message") or body.get("scenario") or ""
 
     try:
-        result = await _run_tool_loop(user_message)
-        parsed = _parse_final(result.get("final_text", "") or "")
-        transcript: Dict[str, Any] = {
-            "agent": "revenue_agent",
-            "agent_role": "Revenue Strategy",
-            "tool_calls": result.get("tool_calls", []),
-            "recommendation": parsed.get("recommendation", ""),
-            "assumptions": parsed.get("assumptions", []),
-            "reasoning": parsed.get("reasoning", ""),
-            "confidence": "high",
-        }
-        if result.get("error"):
-            transcript["error"] = result["error"]
-            transcript["confidence"] = "low"
+        result = await Runner.run(_agent, user_message, max_turns=10)
+        text_output = str(result.final_output or "")
+        return {"content": _extract_json(text_output)}
     except Exception as e:  # noqa: BLE001
         logger.exception("handle_message failed: %s", e)
-        transcript = {
-            "agent": "revenue_agent",
-            "agent_role": "Revenue Strategy",
-            "tool_calls": [],
-            "recommendation": "",
-            "assumptions": [],
-            "reasoning": "",
-            "error": str(e),
-            "confidence": "none",
-        }
-    logger.info("Received transcript")
-    payload = {
-        "recommendation": transcript.get("recommendation", ""),
-        "assumptions": transcript.get("assumptions", []),
-        "reasoning": transcript.get("reasoning", ""),
-    }
-    return {"response": json.dumps(payload), "transcript": transcript}
+        return {"content": "", "error": str(e)}
 
 
 @app.get("/health")

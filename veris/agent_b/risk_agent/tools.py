@@ -1,16 +1,22 @@
 """Mock tool implementations for the Risk Agent.
 
-Returns the same data that appears in backend/data/transcript_b.json so
-agent behavior is reproducible.
-
-Schemas are in OpenAI function-calling format for use with the Baseten
-OpenAI-compatible endpoint.
+Decorated with @function_tool so the OpenAI Agents SDK introspects each
+function's signature and docstring to produce the tool schema automatically.
 """
 
 from typing import Any, Dict
 
+from agents import function_tool
 
+
+@function_tool
 def finance_get_burn_rate(include_benefits: bool = True, period: str = "last_3_months") -> Dict[str, Any]:
+    """Get current monthly burn rate from the finance model.
+
+    Args:
+        include_benefits: Whether to include benefits in the payroll component.
+        period: The reporting period.
+    """
     return {
         "monthly_burn": 680000,
         "payroll_component": 510000,
@@ -22,7 +28,14 @@ def finance_get_burn_rate(include_benefits: bool = True, period: str = "last_3_m
     }
 
 
+@function_tool
 def finance_get_runway_months(current_cash: float = 6000000, monthly_burn: float = 680000) -> Dict[str, Any]:
+    """Compute months of runway given current cash and monthly burn.
+
+    Args:
+        current_cash: Cash on hand in USD.
+        monthly_burn: Monthly burn in USD.
+    """
     runway = round(current_cash / monthly_burn, 2)
     return {
         "runway_months": runway,
@@ -31,7 +44,14 @@ def finance_get_runway_months(current_cash: float = 6000000, monthly_burn: float
     }
 
 
-def finance_get_hire_cost_impact(hire_count: int = 12, avg_engineer_monthly_cost: float = 18000) -> Dict[str, Any]:
+@function_tool
+def finance_get_hire_cost_impact(hire_count: int, avg_engineer_monthly_cost: float = 18000) -> Dict[str, Any]:
+    """Compute the impact of hiring N engineers on burn and runway.
+
+    Args:
+        hire_count: Number of engineers to hire.
+        avg_engineer_monthly_cost: Loaded monthly cost per engineer in USD.
+    """
     extra = hire_count * avg_engineer_monthly_cost
     new_burn = 680000 + extra
     new_runway = round(6000000 / new_burn, 2)
@@ -43,7 +63,14 @@ def finance_get_hire_cost_impact(hire_count: int = 12, avg_engineer_monthly_cost
     }
 
 
+@function_tool
 def macro_get_market_outlook(sector: str = "enterprise_saas", horizon: str = "Q3_Q4_2026") -> Dict[str, Any]:
+    """Get the macro enterprise SaaS market outlook for a sector and horizon.
+
+    Args:
+        sector: Industry sector.
+        horizon: Time horizon for the outlook.
+    """
     return {
         "outlook": "contracting",
         "sector": sector,
@@ -54,76 +81,3 @@ def macro_get_market_outlook(sector: str = "enterprise_saas", horizon: str = "Q3
         "source": "cb_insights_q1_2026_enterprise_saas_report",
         "confidence": "medium",
     }
-
-
-TOOL_SCHEMAS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "finance_get_burn_rate",
-            "description": "Get current monthly burn rate from the finance model.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "include_benefits": {"type": "boolean"},
-                    "period": {"type": "string"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "finance_get_runway_months",
-            "description": "Compute months of runway given current cash and monthly burn.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "current_cash": {"type": "number"},
-                    "monthly_burn": {"type": "number"},
-                },
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "finance_get_hire_cost_impact",
-            "description": "Compute the impact of hiring N engineers on burn and runway.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "hire_count": {"type": "integer"},
-                    "avg_engineer_monthly_cost": {"type": "number"},
-                },
-                "required": ["hire_count"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "macro_get_market_outlook",
-            "description": "Get the macro enterprise SaaS market outlook for a sector and horizon.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "sector": {"type": "string"},
-                    "horizon": {"type": "string"},
-                },
-            },
-        },
-    },
-]
-
-
-def dispatch(name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-    if name == "finance_get_burn_rate":
-        return finance_get_burn_rate(**args)
-    if name == "finance_get_runway_months":
-        return finance_get_runway_months(**args)
-    if name == "finance_get_hire_cost_impact":
-        return finance_get_hire_cost_impact(**args)
-    if name == "macro_get_market_outlook":
-        return macro_get_market_outlook(**args)
-    raise ValueError(f"Unknown tool: {name}")
