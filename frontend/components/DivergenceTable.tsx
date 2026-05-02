@@ -47,39 +47,40 @@ export function DivergenceTable({ data, grounded }: Props) {
         meta={`${data.assumption_table.length} assumptions on ledger`}
       />
 
-      {/* The Crux — featured callout */}
+      {/* The Crux — featured callout (stacked so long variable names never overlap the finding) */}
       <div
         style={{
           background: 'var(--ink)',
           color: 'var(--paper-bright)',
-          padding: '20px 24px',
+          padding: '20px 24px 22px',
           marginBottom: 0,
-          display: 'grid',
-          gridTemplateColumns: '180px 1fr',
-          gap: 24,
-          alignItems: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
           borderBottom: '4px double var(--ink)',
         }}
       >
-        <div>
-          <div
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+          <span
             className="eyebrow-tight"
-            style={{ color: 'var(--paper-deep)', opacity: 0.7, marginBottom: 4 }}
+            style={{ color: 'var(--paper-deep)', opacity: 0.7, whiteSpace: 'nowrap' }}
           >
             The Crux
-          </div>
-          <div
-            className="display"
+          </span>
+          <span
+            className="mono"
             style={{
-              fontSize: 30,
-              fontVariationSettings: '"opsz" 144, "SOFT" 30, "wght" 400',
+              flex: 1,
+              fontSize: 22,
               color: 'var(--paper-bright)',
               fontStyle: 'italic',
-              lineHeight: 1,
+              lineHeight: 1.1,
+              wordBreak: 'break-word',
+              fontVariationSettings: '"opsz" 144, "SOFT" 20, "wght" 400',
             }}
           >
             {data.crux_variable}
-          </div>
+          </span>
         </div>
         <p
           className="serif"
