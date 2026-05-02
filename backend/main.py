@@ -53,9 +53,9 @@ async def run(scenario_a: str | None = None, scenario_b: str | None = None):
 
 
 @app.get("/api/case/{case_id}")
-def get_case(case_id: str):
+async def get_case(case_id: str):
     """Return a previously-saved arbitration by ID (powers shareable URLs)."""
-    saved = load_case(case_id)
+    saved = await load_case(case_id)
     if saved is None:
         return {"error": "case_not_found", "case_id": case_id}
     return saved

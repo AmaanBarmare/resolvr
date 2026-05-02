@@ -3,6 +3,8 @@
 .env.local
 .env.*.local
 *.env
+# ...but always commit the example template
+!.env.example
 
 # Python
 __pycache__/

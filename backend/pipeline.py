@@ -13,31 +13,44 @@ from pipeline_stages.brief import run_brief
 from pipeline_stages.forensics import run_forensics
 from pipeline_stages.grounding import run_grounding
 from pipeline_stages.simulation import run_simulation
+from utils import vercel_blob
 
 DATA_DIR = Path(__file__).parent / os.getenv("DATA_DIR", "data")
 CASES_DIR = DATA_DIR / "cases"
 
 
-def _save_case(
+def _case_pathname(case_id: str) -> str:
+    return f"cases/{case_id}.json"
+
+
+async def _save_case(
     case_id: str,
     stage_data: Dict[int, Any],
     scenario_a: str,
     scenario_b: str,
 ) -> None:
-    """Persist a completed run to a local JSON file (per CLAUDE.md: no DB)."""
-    CASES_DIR.mkdir(parents=True, exist_ok=True)
+    """Persist a completed run. Uses Vercel Blob when BLOB_READ_WRITE_TOKEN is
+    set (production); otherwise writes to local disk (dev)."""
     payload = {
         "case_id": case_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "scenarios": {"a": scenario_a, "b": scenario_b},
         "stage_data": {str(k): v for k, v in stage_data.items()},
     }
+    if vercel_blob.is_configured():
+        await vercel_blob.put_json(_case_pathname(case_id), payload)
+        return
+
+    CASES_DIR.mkdir(parents=True, exist_ok=True)
     with open(CASES_DIR / f"{case_id}.json", "w") as f:
         json.dump(payload, f, indent=2)
 
 
-def load_case(case_id: str) -> Optional[Dict[str, Any]]:
+async def load_case(case_id: str) -> Optional[Dict[str, Any]]:
     """Read a saved case by ID. Returns None if not found."""
+    if vercel_blob.is_configured():
+        return await vercel_blob.get_json(_case_pathname(case_id))
+
     path = CASES_DIR / f"{case_id}.json"
     if not path.exists():
         return None
@@ -239,7 +252,7 @@ async def run_pipeline(
 
         # Persist the completed case so it can be re-opened via /api/case/{id}
         try:
-            _save_case(case_id, captured, scenario_a, scenario_b)
+            await _save_case(case_id, captured, scenario_a, scenario_b)
         except Exception:  # noqa: BLE001
             # Persistence failure shouldn't break the user-facing run.
             pass

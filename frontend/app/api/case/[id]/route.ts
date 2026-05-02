@@ -1,6 +1,12 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+function backendBase(): string {
+  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/_/backend`;
+  return 'http://localhost:8000';
+}
+
 /**
  * Proxy GET /api/case/{id} → FastAPI backend.
  * Powers shareable /?case={uuid} URLs by streaming the backend's saved-case
@@ -11,7 +17,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const backend = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+  const backend = backendBase();
   const upstream = await fetch(`${backend}/api/case/${encodeURIComponent(id)}`, {
     headers: { Accept: 'application/json' },
   });
