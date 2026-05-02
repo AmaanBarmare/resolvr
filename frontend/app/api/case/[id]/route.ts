@@ -1,9 +1,12 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-function backendBase(): string {
+function backendBase(req: Request): string {
   if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}/_/backend`;
+  if (process.env.VERCEL) {
+    const u = new URL(req.url);
+    return `${u.protocol}//${u.host}/_/backend`;
+  }
   return 'http://localhost:8000';
 }
 
@@ -13,11 +16,11 @@ function backendBase(): string {
  * JSON straight back to the browser.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const backend = backendBase();
+  const backend = backendBase(req);
   const upstream = await fetch(`${backend}/api/case/${encodeURIComponent(id)}`, {
     headers: { Accept: 'application/json' },
   });

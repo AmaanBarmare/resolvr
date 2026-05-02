@@ -54,3 +54,4 @@ backend/data/*.local.json
 
 # Saved arbitration cases (user-generated, written at runtime)
 backend/data/cases/
+.vercel
