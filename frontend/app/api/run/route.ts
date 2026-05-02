@@ -9,12 +9,14 @@ export const runtime = 'nodejs';
  * backend service via the experimentalServices `routePrefix`.
  */
 function backendBase(req: Request): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+  // On Vercel, always route via the user's own host. Vercel multi-service
+  // auto-injects NEXT_PUBLIC_BACKEND_URL=/_/backend (a relative path), which
+  // fetch() can't resolve — so we ignore the env var when running on Vercel.
   if (process.env.VERCEL) {
     const u = new URL(req.url);
     return `${u.protocol}//${u.host}/_/backend`;
   }
-  return 'http://localhost:8000';
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 }
 
 export async function GET(req: Request) {

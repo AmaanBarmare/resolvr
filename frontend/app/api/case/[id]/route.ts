@@ -2,12 +2,13 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 function backendBase(req: Request): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+  // See app/api/run/route.ts — Vercel multi-service auto-injects a relative
+  // NEXT_PUBLIC_BACKEND_URL that fetch() can't resolve.
   if (process.env.VERCEL) {
     const u = new URL(req.url);
     return `${u.protocol}//${u.host}/_/backend`;
   }
-  return 'http://localhost:8000';
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 }
 
 /**
